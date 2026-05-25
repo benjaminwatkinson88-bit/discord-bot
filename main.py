@@ -18,6 +18,8 @@ class DiscordBot(commands.Bot):
     async def setup_hook(self):
         extensions = [
             "cogs.fun",
+            "cogs.extra_fun",
+            "cogs.utility",
             "cogs.titles",
             "cogs.ai_cog",
             "cogs.help_cog",

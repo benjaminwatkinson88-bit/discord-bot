@@ -6,23 +6,38 @@ from discord.ext import commands
 PUBLIC_FUN_COMMANDS = [
     ("`/slots`", "Pull the slot machine lever and try your luck!"),
     ("`/tictactoe @user`", "Challenge someone to Tic Tac Toe"),
-    ("`/rate <prompt>`", "Get a consistent rating for anything"),
+    ("`/rate <prompt>`", "Get a rating for anything"),
     ("`/compare <thing1> <thing2>`", "See who or what wins in a head-to-head"),
     ("`/8ball <question>`", "Ask the magic 8 ball"),
     ("`/roll [sides]`", "Roll a dice (default: d6)"),
     ("`/coinflip`", "Flip a coin — heads or tails?"),
     ("`/joke`", "Hear a random joke"),
-    ("`/roast @user`", "Get an AI roast of someone (all in good fun!)"),
+    ("`/roast @user`", "Get an AI roast of someone"),
     ("`/wyr`", "Get a Would You Rather question"),
     ("`/ship @user1 @user2`", "Check love compatibility between two people"),
-    ("`/trivia`", "Get an AI trivia question (answer revealed in 15s)"),
+    ("`/trivia`", "AI trivia question (answer revealed in 15s)"),
     ("`/fact`", "Get a random fun fact"),
     ("`/rps <choice>`", "Play Rock, Paper, Scissors against the bot"),
+    ("`/riddle`", "Get an AI riddle with a reveal button"),
+    ("`/advice <situation>`", "Get AI advice on any situation"),
+    ("`/mock <text>`", "SpongeBob mocking meme text"),
+    ("`/emojify <text>`", "Turn your text into emoji letters"),
+    ("`/topic`", "Get a random conversation topic"),
+    ("`/horoscope <sign>`", "Get your AI-generated horoscope"),
+    ("`/debate <statement>`", "The AI argues the opposite of your statement"),
 ]
 
 PUBLIC_AI_COMMANDS = [
     ("`/story <prompt>`", "Generate an AI story based on your prompt"),
     ("`/personality`", "See the bot's current AI personality"),
+]
+
+PUBLIC_UTILITY_COMMANDS = [
+    ("`/invite`", "Get the link to add this bot to your server"),
+    ("`/poll <question> <opt1> <opt2> ...`", "Create a live voting poll"),
+    ("`/serverinfo`", "View info about this server"),
+    ("`/userinfo [@user]`", "View info about a user"),
+    ("`/avatar [@user]`", "View someone's avatar in full size"),
 ]
 
 ADMIN_COMMANDS = [
@@ -34,7 +49,8 @@ ADMIN_COMMANDS = [
     ("`/addkeyword <keyword> <emoji>`", "Add a custom role keyword mapping"),
     ("`/removekeyword <keyword>`", "Remove a keyword mapping"),
     ("`/setpersonality <text>`", "Change the bot's AI personality for this server"),
-    ("`/channel [#channel]`", "Set a channel the bot replies to all messages in (no arg = disable)"),
+    ("`/channel [#channel]`", "Set a channel the bot replies to all messages in"),
+    ("`/announce <#channel> <title> <message>`", "Send a formatted announcement"),
 ]
 
 OTHER_COMMANDS = [
@@ -68,6 +84,9 @@ class HelpCog(commands.Cog, name="Help"):
 
         ai_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in PUBLIC_AI_COMMANDS)
         embed.add_field(name="🤖 AI Commands", value=ai_text, inline=False)
+
+        util_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in PUBLIC_UTILITY_COMMANDS)
+        embed.add_field(name="🔧 Utility", value=util_text, inline=False)
 
         if is_admin:
             admin_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in ADMIN_COMMANDS)
