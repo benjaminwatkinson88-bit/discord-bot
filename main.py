@@ -32,16 +32,16 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
-        for guild in self.guilds:
-            try:
-                self.tree.clear_commands(guild=guild)
-                await self.tree.sync(guild=guild)
-                print(f"Cleared old guild commands: {guild.name}")
-            except Exception as e:
-                print(f"Failed to clear guild {guild.id}: {e}")
-
         await self.tree.sync()
         print("Global sync complete.")
+
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"Synced to guild: {guild.name}")
+            except Exception as e:
+                print(f"Failed to sync to guild {guild.id}: {e}")
 
         activity = discord.Activity(
             type=discord.ActivityType.playing,
@@ -51,7 +51,7 @@ class DiscordBot(commands.Bot):
 
     async def on_guild_join(self, guild: discord.Guild):
         try:
-            self.tree.clear_commands(guild=guild)
+            self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
         except Exception:
             pass
