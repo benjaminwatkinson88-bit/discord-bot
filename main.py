@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import os
-import asyncio
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -30,11 +29,20 @@ class DiscordBot(commands.Bot):
             except Exception as e:
                 print(f"Failed to load {ext}: {e}")
 
-        await self.tree.sync()
-        print("Commands synced globally.")
-
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
+
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"Synced commands to guild: {guild.name} ({guild.id})")
+            except Exception as e:
+                print(f"Failed to sync to guild {guild.id}: {e}")
+
+        await self.tree.sync()
+        print("Global sync complete.")
+
         activity = discord.Activity(
             type=discord.ActivityType.playing,
             name="/help | Powered by AI"

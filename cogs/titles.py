@@ -61,11 +61,14 @@ def save_config(config: dict):
 def get_keyword_map(guild_id: int) -> dict:
     config = load_config()
     guild_key = str(guild_id)
+    merged = dict(DEFAULT_KEYWORDS)
     if guild_key in config:
-        merged = dict(DEFAULT_KEYWORDS)
-        merged.update(config[guild_key])
-        return merged
-    return dict(DEFAULT_KEYWORDS)
+        for k, v in config[guild_key].items():
+            if v is None:
+                merged.pop(k, None)
+            else:
+                merged[k] = v
+    return merged
 
 
 def get_base_name(member: discord.Member) -> str:
