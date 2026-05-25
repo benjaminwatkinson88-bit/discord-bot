@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 import os
 
@@ -13,6 +14,13 @@ class DiscordBot(commands.Bot):
             command_prefix="!",
             intents=intents,
             help_command=None,
+        )
+        # Allow commands to work in server installs AND user installs
+        self.tree.allowed_installs = app_commands.AppInstallationType(
+            guild=True, user=True
+        )
+        self.tree.allowed_contexts = app_commands.AppCommandContext(
+            guild=True, dm_channel=True, private_channel=True
         )
 
     async def setup_hook(self):
@@ -35,22 +43,24 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
-        # Directly wipe ALL global commands via Discord's REST API
-        # This is the only reliable way to remove stale global commands
-        try:
-            await self.http.bulk_upsert_global_commands(self.application_id, [])
-            print("Wiped all global commands from Discord API.")
-        except Exception as e:
-            print(f"Warning: could not wipe global commands: {e}")
-
-        # Sync guild-specific commands (appear instantly, no global duplicates)
+        # Step 1: Wipe guild-specific commands for every guild.
+        # These are the source of duplicates when mixed with global commands.
         for guild in self.guilds:
             try:
-                self.tree.copy_global_to(guild=guild)
+                self.tree.clear_commands(guild=guild)
                 await self.tree.sync(guild=guild)
-                print(f"Synced to: {guild.name}")
+                print(f"Cleared guild-specific commands: {guild.name}")
             except Exception as e:
-                print(f"Failed to sync to {guild.name}: {e}")
+                print(f"Could not clear {guild.name}: {e}")
+
+        # Step 2: Sync all commands globally.
+        # Global commands are required for user-installable apps to work.
+        # With guild-specific commands now empty, there are no duplicates.
+        try:
+            await self.tree.sync()
+            print("Synced all commands globally.")
+        except Exception as e:
+            print(f"Global sync failed: {e}")
 
         activity = discord.Activity(
             type=discord.ActivityType.playing,
@@ -59,12 +69,8 @@ class DiscordBot(commands.Bot):
         await self.change_presence(activity=activity)
 
     async def on_guild_join(self, guild: discord.Guild):
-        try:
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print(f"New guild synced: {guild.name}")
-        except Exception as e:
-            print(f"Failed to sync new guild {guild.name}: {e}")
+        # New guilds get commands from global registration automatically.
+        print(f"Joined new guild: {guild.name}")
 
 
 bot = DiscordBot()
