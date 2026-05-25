@@ -5,6 +5,7 @@ import os
 import json
 
 DATA_FILE = "data/personality.json"
+CHANNEL_FILE = "data/channel_config.json"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
@@ -38,6 +39,35 @@ def get_personality(guild_id: int) -> str:
             f"Keep responses concise and fitting to your personality."
         )
     return DEFAULT_PERSONALITY
+
+
+def load_channels() -> dict:
+    if os.path.exists(CHANNEL_FILE):
+        try:
+            with open(CHANNEL_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_channels(data: dict):
+    os.makedirs("data", exist_ok=True)
+    with open(CHANNEL_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_active_channel(guild_id: int):
+    return load_channels().get(str(guild_id))
+
+
+def set_active_channel(guild_id: int, channel_id: int | None):
+    data = load_channels()
+    if channel_id is None:
+        data.pop(str(guild_id), None)
+    else:
+        data[str(guild_id)] = channel_id
+    save_channels(data)
 
 
 class AICog(commands.Cog, name="AI"):
@@ -77,22 +107,7 @@ class AICog(commands.Cog, name="AI"):
         )
         return response.choices[0].message.content.strip()
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-        if self.bot.user not in message.mentions:
-            return
-
-        content = (
-            message.content
-            .replace(f"<@{self.bot.user.id}>", "")
-            .replace(f"<@!{self.bot.user.id}>", "")
-            .strip()
-        )
-        if not content:
-            content = "Hello! Say something to me."
-
+    async def _send_ai_reply(self, message: discord.Message, content: str):
         client = self.get_groq_client()
         if not client:
             await message.reply("⚠️ AI is not configured yet. An admin needs to set the `GROQ_KEY` secret.")
@@ -107,6 +122,71 @@ class AICog(commands.Cog, name="AI"):
                 await message.reply(reply)
             except Exception as e:
                 await message.reply(f"⚠️ Something went wrong with the AI: {e}")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        guild_id = message.guild.id if message.guild else None
+
+        active_channel = get_active_channel(guild_id) if guild_id else None
+        in_active_channel = active_channel and message.channel.id == active_channel
+
+        is_mentioned = self.bot.user in message.mentions
+
+        if not is_mentioned and not in_active_channel:
+            return
+
+        content = (
+            message.content
+            .replace(f"<@{self.bot.user.id}>", "")
+            .replace(f"<@!{self.bot.user.id}>", "")
+            .strip()
+        )
+        if not content:
+            content = "Hello! Say something to me."
+
+        await self._send_ai_reply(message, content)
+
+    @app_commands.command(name="channel", description="[Admin] Set a channel for the bot to reply to all messages in.")
+    @app_commands.describe(channel="The channel to activate (leave empty to disable)")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def channel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
+        if channel is None:
+            current = get_active_channel(interaction.guild.id)
+            if current:
+                set_active_channel(interaction.guild.id, None)
+                embed = discord.Embed(
+                    title="🔕 AI Channel Disabled",
+                    description="The bot will no longer reply to all messages in a channel.\nIt will still respond when pinged.",
+                    color=discord.Color.red()
+                )
+            else:
+                embed = discord.Embed(
+                    title="ℹ️ No Active Channel",
+                    description="There is no active AI channel set. Provide a channel to enable it.",
+                    color=discord.Color.blurple()
+                )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        set_active_channel(interaction.guild.id, channel.id)
+
+        embed = discord.Embed(
+            title="✅ AI Channel Set",
+            description=f"The bot will now reply to **every message** in {channel.mention}.",
+            color=discord.Color.green()
+        )
+        embed.set_footer(text=f"Run /channel with no argument to disable. Set by {interaction.user.display_name}")
+        await interaction.response.send_message(embed=embed)
+
+    @channel.error
+    async def channel_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message(
+                "❌ You need **Administrator** permission to use this command.", ephemeral=True
+            )
 
     @app_commands.command(name="setpersonality", description="[Admin] Change the bot's AI personality for this server.")
     @app_commands.describe(personality="Describe the bot's personality (e.g. 'sarcastic pirate who loves memes')")
@@ -149,11 +229,9 @@ class AICog(commands.Cog, name="AI"):
             return
 
         try:
-            guild_id = interaction.guild.id if interaction.guild else None
             story_text = await self.quick_ai(
                 f"Write a creative, engaging short story (around 150-250 words) about: {prompt}",
                 system="You are a creative storyteller who writes captivating, imaginative short stories.",
-                guild_id=None
             )
         except Exception as e:
             await interaction.followup.send(f"⚠️ Couldn't generate a story: {e}")

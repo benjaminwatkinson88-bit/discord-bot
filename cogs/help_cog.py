@@ -34,6 +34,7 @@ ADMIN_COMMANDS = [
     ("`/addkeyword <keyword> <emoji>`", "Add a custom role keyword mapping"),
     ("`/removekeyword <keyword>`", "Remove a keyword mapping"),
     ("`/setpersonality <text>`", "Change the bot's AI personality for this server"),
+    ("`/channel [#channel]`", "Set a channel the bot replies to all messages in (no arg = disable)"),
 ]
 
 OTHER_COMMANDS = [
