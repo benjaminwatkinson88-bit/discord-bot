@@ -190,9 +190,19 @@ class FunCog(commands.Cog, name="Fun"):
     async def rate(self, interaction: discord.Interaction, prompt: str):
         await interaction.response.defer()
 
-        rating = consistent_number(prompt, 1, 100)
-        bar_filled = round(rating / 10)
-        bar = "█" * bar_filled + "░" * (10 - bar_filled)
+        rating = consistent_number(prompt, 1, 10)
+
+        if rating <= 3:
+            color = discord.Color.red()
+            star = "🔴"
+        elif rating <= 6:
+            color = discord.Color.orange()
+            star = "🟠"
+        else:
+            color = discord.Color.green()
+            star = "🟢"
+
+        bar = "█" * rating + "░" * (10 - rating)
 
         ai_cog = self.bot.get_cog("AI")
         description = ""
@@ -200,15 +210,15 @@ class FunCog(commands.Cog, name="Fun"):
             try:
                 guild_id = interaction.guild.id if interaction.guild else None
                 description = await ai_cog.quick_ai(
-                    f"Write a single short, witty, and unique sentence rating '{prompt}' a {rating}/100. "
-                    f"Be creative and match the tone to the score — harsh if low, glowing if high.",
+                    f"Write a single short, witty, and unique sentence rating '{prompt}' a {rating}/10. "
+                    f"Match the tone to the score — brutal if 1-3, lukewarm if 4-6, glowing if 7-10.",
                     guild_id=guild_id
                 )
             except Exception:
                 pass
 
-        embed = discord.Embed(title=f"⭐ Rating: {prompt}", color=discord.Color.orange())
-        embed.add_field(name="Score", value=f"`{bar}` **{rating}/100**", inline=False)
+        embed = discord.Embed(title=f"{star} Rating: {prompt}", color=color)
+        embed.add_field(name="Score", value=f"`{bar}` **{rating} / 10**", inline=False)
         if description:
             embed.add_field(name="Verdict", value=description, inline=False)
         await interaction.followup.send(embed=embed)

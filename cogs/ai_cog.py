@@ -30,7 +30,14 @@ def save_personalities(data: dict):
 
 def get_personality(guild_id: int) -> str:
     data = load_personalities()
-    return data.get(str(guild_id), DEFAULT_PERSONALITY)
+    custom = data.get(str(guild_id))
+    if custom:
+        return (
+            f"You are a Discord bot with the following personality: {custom}. "
+            f"Always stay fully in character. Never break character or explain that you're an AI. "
+            f"Keep responses concise and fitting to your personality."
+        )
+    return DEFAULT_PERSONALITY
 
 
 class AICog(commands.Cog, name="AI"):

@@ -34,11 +34,11 @@ class DiscordBot(commands.Bot):
 
         for guild in self.guilds:
             try:
-                self.tree.copy_global_to(guild=guild)
+                self.tree.clear_commands(guild=guild)
                 await self.tree.sync(guild=guild)
-                print(f"Synced commands to guild: {guild.name} ({guild.id})")
+                print(f"Cleared old guild commands: {guild.name}")
             except Exception as e:
-                print(f"Failed to sync to guild {guild.id}: {e}")
+                print(f"Failed to clear guild {guild.id}: {e}")
 
         await self.tree.sync()
         print("Global sync complete.")
@@ -48,6 +48,13 @@ class DiscordBot(commands.Bot):
             name="/help | Powered by AI"
         )
         await self.change_presence(activity=activity)
+
+    async def on_guild_join(self, guild: discord.Guild):
+        try:
+            self.tree.clear_commands(guild=guild)
+            await self.tree.sync(guild=guild)
+        except Exception:
+            pass
 
 
 bot = DiscordBot()
