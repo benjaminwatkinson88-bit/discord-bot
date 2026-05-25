@@ -38,6 +38,8 @@ PUBLIC_UTILITY_COMMANDS = [
     ("`/serverinfo`", "View info about this server"),
     ("`/userinfo [@user]`", "View info about a user"),
     ("`/avatar [@user]`", "View someone's avatar in full size"),
+    ("`/rank [@user]`", "Check your XP level and server rank"),
+    ("`/leaderboard`", "See the top members by XP"),
 ]
 
 ADMIN_COMMANDS = [
@@ -51,6 +53,8 @@ ADMIN_COMMANDS = [
     ("`/setpersonality <text>`", "Change the bot's AI personality for this server"),
     ("`/channel [#channel]`", "Set a channel the bot replies to all messages in"),
     ("`/announce <#channel> <title> <message>`", "Send a formatted announcement"),
+    ("`/givexp @user <amount>`", "Give XP to a member"),
+    ("`/resetxp @user`", "Reset a member's XP to zero"),
 ]
 
 OTHER_COMMANDS = [

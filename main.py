@@ -21,6 +21,7 @@ class DiscordBot(commands.Bot):
             "cogs.extra_fun",
             "cogs.utility",
             "cogs.titles",
+            "cogs.levels",
             "cogs.ai_cog",
             "cogs.help_cog",
         ]
@@ -34,11 +35,22 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
+        # Wipe stale global commands from Discord (the source of duplicates)
+        saved = self.tree.get_commands()
+        self.tree.clear_commands(guild=None)
+        await self.tree.sync()
+        print("Cleared global commands.")
+
+        # Restore commands to tree
+        for cmd in saved:
+            self.tree.add_command(cmd)
+
+        # Sync to each guild instantly (guild commands appear immediately)
         for guild in self.guilds:
             try:
                 self.tree.copy_global_to(guild=guild)
                 await self.tree.sync(guild=guild)
-                print(f"Synced to guild: {guild.name}")
+                print(f"Synced to: {guild.name}")
             except Exception as e:
                 print(f"Failed to sync to guild {guild.id}: {e}")
 
