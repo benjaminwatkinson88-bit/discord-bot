@@ -53,8 +53,8 @@ class HorsleCog(commands.Cog, name="Horsle"):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="horsle", description="Watch chaotic horse racing in real time!")
-    async def horsle(self, interaction: discord.Interaction):
+    @app_commands.command(name="racestart", description="Watch chaotic horse racing in real time!")
+    async def racestart(self, interaction: discord.Interaction):
         count = random.randint(4, 6)
         names = random.sample(HORSE_NAMES, count)
         emojis = HORSE_EMOJIS[:count]
@@ -64,7 +64,7 @@ class HorsleCog(commands.Cog, name="Horsle"):
         view = HorsleView()
 
         embed = discord.Embed(
-            title="🏟️ HORSLE — Race Starting Soon!",
+            title="🏟️ Horse Race — Starting Soon!",
             description=(
                 "The horses are lining up at the gate...\n\n"
                 + render_race(positions, names, emojis, finished)
@@ -110,13 +110,13 @@ class HorsleCog(commands.Cog, name="Horsle"):
             if len(finished) == count:
                 winner = names[finished[0]]
                 embed = discord.Embed(
-                    title="🏆 HORSLE — Race Over!",
+                    title="🏆 Horse Race — Race Over!",
                     description=desc + f"\n\n🥇 **{winner}** wins!",
                     color=discord.Color.gold(),
                 )
             else:
                 embed = discord.Embed(
-                    title=f"🏟️ HORSLE — Lap {tick}",
+                    title=f"🏟️ Horse Race — Lap {tick}",
                     description=desc,
                     color=discord.Color.blurple(),
                 )
