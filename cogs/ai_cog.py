@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
-MEMORY_FILE = "data/conversation_memory.json"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
@@ -78,12 +77,19 @@ def set_active_channel(guild_id: int, channel_id: int | None):
     save_channels(data)
 
 
-def get_conversation_key(message: discord.Message) -> str:
+def get_conversation_key(context: discord.Interaction | discord.Message) -> str:
     """Generate a unique key for each conversation thread"""
-    if message.guild:
-        return f"guild_{message.guild.id}_channel_{message.channel.id}"
+    if isinstance(context, discord.Interaction):
+        guild_id = context.guild.id if context.guild else None
+        channel_id = context.channel.id if context.channel else None
     else:
-        return f"dm_{message.author.id}"
+        guild_id = context.guild.id if context.guild else None
+        channel_id = context.channel.id
+    
+    if guild_id:
+        return f"guild_{guild_id}_channel_{channel_id}"
+    else:
+        return f"dm_{channel_id}"
 
 
 def add_to_memory(key: str, role: str, content: str):
@@ -303,9 +309,11 @@ class AICog(commands.Cog, name="AI"):
             return
 
         try:
+            conversation_key = get_conversation_key(interaction)
             story_text = await self.quick_ai(
                 f"Write a creative, engaging short story (around 150-250 words) about: {prompt}",
                 system="You are a creative storyteller who writes captivating, imaginative short stories.",
+                conversation_key=conversation_key
             )
         except Exception as e:
             await interaction.followup.send(f"⚠️ Couldn't generate a story: {e}")
@@ -326,9 +334,7 @@ class AICog(commands.Cog, name="AI"):
     @app_commands.checks.has_permissions(administrator=True)
     async def clearmemory(self, interaction: discord.Interaction):
         """Clear conversation history for the current channel"""
-        guild_id = interaction.guild.id if interaction.guild else None
-        conversation_key = f"guild_{guild_id}_channel_{interaction.channel.id}"
-        
+        conversation_key = get_conversation_key(interaction)
         clear_conversation(conversation_key)
         
         embed = discord.Embed(
