@@ -138,7 +138,7 @@ class AICog(commands.Cog, name="AI"):
         self._groq_api_key = None
 
     def get_groq_client(self):
-        api_key = os.environ.get("GROQ_KEY")
+        api_key = os.environ.get("GROQ_KEY", "").strip().strip('"').strip("'")
         if not api_key:
             return None
 
@@ -202,8 +202,8 @@ class AICog(commands.Cog, name="AI"):
                 if len(reply) > 2000:
                     reply = reply[:1997] + "..."
                 await message.reply(reply)
-            except Exception:
-                pass
+            except Exception as e:
+                await message.reply(f"⚠️ Something went wrong with the AI: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
