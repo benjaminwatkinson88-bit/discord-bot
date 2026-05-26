@@ -33,6 +33,7 @@ class DiscordBot(commands.Bot):
             "cogs.ai_cog",
             "cogs.help_cog",
             "cogs.hangman",
+            "cogs.horsle",
         ]
         for ext in extensions:
             try:
