@@ -136,6 +136,7 @@ class AICog(commands.Cog, name="AI"):
         self.bot = bot
         self._groq_client = None
         self._groq_api_key = None
+        self._handled_ids: set = set()
 
     def get_groq_client(self):
         api_key = os.environ.get("GROQ_KEY", "").strip().strip('"').strip("'")
