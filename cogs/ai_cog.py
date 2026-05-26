@@ -3,14 +3,22 @@ from discord import app_commands
 from discord.ext import commands
 import os
 import json
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
+MEMORY_FILE = "data/conversation_memory.json"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
     "and enjoy chatting with server members. Keep your responses concise and engaging."
 )
+
+# Store conversation history in memory with timestamps
+conversation_memory = defaultdict(list)
+MAX_HISTORY = 10  # Keep last 10 messages per conversation
+MEMORY_EXPIRY = 3600  # Expire conversations after 1 hour of inactivity
 
 
 def load_personalities() -> dict:
@@ -70,6 +78,53 @@ def set_active_channel(guild_id: int, channel_id: int | None):
     save_channels(data)
 
 
+def get_conversation_key(message: discord.Message) -> str:
+    """Generate a unique key for each conversation thread"""
+    if message.guild:
+        return f"guild_{message.guild.id}_channel_{message.channel.id}"
+    else:
+        return f"dm_{message.author.id}"
+
+
+def add_to_memory(key: str, role: str, content: str):
+    """Add a message to conversation memory"""
+    conversation_memory[key].append({
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now().isoformat()
+    })
+    
+    # Keep only the last MAX_HISTORY messages
+    if len(conversation_memory[key]) > MAX_HISTORY:
+        conversation_memory[key] = conversation_memory[key][-MAX_HISTORY:]
+
+
+def clean_old_conversations():
+    """Remove conversations that haven't been active for MEMORY_EXPIRY seconds"""
+    now = datetime.now()
+    keys_to_remove = []
+    
+    for key, messages in conversation_memory.items():
+        if messages:
+            last_message_time = datetime.fromisoformat(messages[-1]["timestamp"])
+            if (now - last_message_time).total_seconds() > MEMORY_EXPIRY:
+                keys_to_remove.append(key)
+    
+    for key in keys_to_remove:
+        del conversation_memory[key]
+
+
+def get_conversation_history(key: str) -> list:
+    """Get conversation history for a key"""
+    return conversation_memory.get(key, [])
+
+
+def clear_conversation(key: str):
+    """Clear conversation history for a key"""
+    if key in conversation_memory:
+        del conversation_memory[key]
+
+
 class AICog(commands.Cog, name="AI"):
     def __init__(self, bot):
         self.bot = bot
@@ -90,19 +145,28 @@ class AICog(commands.Cog, name="AI"):
         except Exception:
             return None
 
-    async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None) -> str:
+    async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None) -> str:
+        """Send a prompt to AI with optional conversation history"""
         client = self.get_groq_client()
         if not client:
             raise RuntimeError("GROQ_KEY is not set or Groq is unavailable.")
 
         system_msg = system or (get_personality(guild_id) if guild_id else DEFAULT_PERSONALITY)
+        
+        # Build message list with conversation history
+        messages = [{"role": "system", "content": system_msg}]
+        
+        # Add conversation history if available
+        if conversation_key:
+            history = get_conversation_history(conversation_key)
+            messages.extend(history)
+        
+        # Add the current prompt
+        messages.append({"role": "user", "content": prompt})
 
         response = await client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": prompt},
-            ],
+            messages=messages,
             max_tokens=512,
         )
         return response.choices[0].message.content.strip()
@@ -116,7 +180,17 @@ class AICog(commands.Cog, name="AI"):
         async with message.channel.typing():
             try:
                 guild_id = message.guild.id if message.guild else None
-                reply = await self.quick_ai(content, guild_id=guild_id)
+                conversation_key = get_conversation_key(message)
+                
+                # Add user message to memory
+                add_to_memory(conversation_key, "user", content)
+                
+                # Get AI response with conversation history
+                reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
+                
+                # Add bot response to memory
+                add_to_memory(conversation_key, "assistant", reply)
+                
                 if len(reply) > 2000:
                     reply = reply[:1997] + "..."
                 await message.reply(reply)
@@ -247,6 +321,22 @@ class AICog(commands.Cog, name="AI"):
         )
         embed.set_footer(text=f"Requested by {interaction.user.display_name}")
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="clearmemory", description="Clear the bot's conversation memory for this channel.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def clearmemory(self, interaction: discord.Interaction):
+        """Clear conversation history for the current channel"""
+        guild_id = interaction.guild.id if interaction.guild else None
+        conversation_key = f"guild_{guild_id}_channel_{interaction.channel.id}"
+        
+        clear_conversation(conversation_key)
+        
+        embed = discord.Embed(
+            title="🧹 Memory Cleared",
+            description="The bot's conversation memory for this channel has been reset.",
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @setpersonality.error
     async def setpersonality_error(self, interaction: discord.Interaction, error):

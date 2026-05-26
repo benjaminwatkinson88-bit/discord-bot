@@ -76,11 +76,13 @@ class LevelsCog(commands.Cog, name="Levels"):
         self._cooldowns: dict = {}
 
     def _on_cooldown(self, guild_id: int, user_id: int) -> bool:
+        """Check if user is on cooldown. If not, set cooldown and return False."""
         key = (guild_id, user_id)
         now = time.time()
         last = self._cooldowns.get(key, 0)
         if now - last < XP_COOLDOWN:
             return True
+        # Only update cooldown if check passed (not on cooldown)
         self._cooldowns[key] = now
         return False
 
