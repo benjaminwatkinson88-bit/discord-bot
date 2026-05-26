@@ -135,21 +135,23 @@ class AICog(commands.Cog, name="AI"):
     def __init__(self, bot):
         self.bot = bot
         self._groq_client = None
+        self._groq_api_key = None
 
     def get_groq_client(self):
-        if self._groq_client is not None:
-            return self._groq_client
-
         api_key = os.environ.get("GROQ_KEY")
         if not api_key:
             return None
 
-        try:
-            from groq import AsyncGroq
-            self._groq_client = AsyncGroq(api_key=api_key)
-            return self._groq_client
-        except Exception:
-            return None
+        # Rebuild client if the key has changed since last time
+        if self._groq_client is None or api_key != self._groq_api_key:
+            try:
+                from groq import AsyncGroq
+                self._groq_client = AsyncGroq(api_key=api_key)
+                self._groq_api_key = api_key
+            except Exception:
+                return None
+
+        return self._groq_client
 
     async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None) -> str:
         """Send a prompt to AI with optional conversation history"""
@@ -187,33 +189,39 @@ class AICog(commands.Cog, name="AI"):
             try:
                 guild_id = message.guild.id if message.guild else None
                 conversation_key = get_conversation_key(message)
-                
+
                 # Add user message to memory
                 add_to_memory(conversation_key, "user", content)
-                
+
                 # Get AI response with conversation history
                 reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
-                
+
                 # Add bot response to memory
                 add_to_memory(conversation_key, "assistant", reply)
-                
+
                 if len(reply) > 2000:
                     reply = reply[:1997] + "..."
                 await message.reply(reply)
-            except Exception as e:
-                await message.reply(f"⚠️ Something went wrong with the AI: {e}")
+            except Exception:
+                pass
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
 
+        # Dedup: ignore if we've already handled this message ID
+        if message.id in self._handled_ids:
+            return
+        self._handled_ids.add(message.id)
+        # Keep the set from growing unboundedly
+        if len(self._handled_ids) > 1000:
+            self._handled_ids.clear()
+
         guild_id = message.guild.id if message.guild else None
-
         active_channel = get_active_channel(guild_id) if guild_id else None
-        in_active_channel = active_channel and message.channel.id == active_channel
-
         is_mentioned = self.bot.user in message.mentions
+        in_active_channel = bool(active_channel and message.channel.id == active_channel)
 
         if not is_mentioned and not in_active_channel:
             return
