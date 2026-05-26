@@ -121,8 +121,11 @@ def clean_old_conversations():
 
 
 def get_conversation_history(key: str) -> list:
-    """Get conversation history for a key"""
-    return conversation_memory.get(key, [])
+    """Get conversation history for a key (only role/content, no extra fields)"""
+    return [
+        {"role": m["role"], "content": m["content"]}
+        for m in conversation_memory.get(key, [])
+    ]
 
 
 def clear_conversation(key: str):
