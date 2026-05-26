@@ -141,6 +141,7 @@ class AICog(commands.Cog, name="AI"):
     def get_groq_client(self):
         api_key = os.environ.get("GROQ_KEY", "").strip().strip('"').strip("'")
         if not api_key:
+            print("[AI] GROQ_KEY is not set or is empty.")
             return None
 
         # Rebuild client if the key has changed since last time
@@ -149,7 +150,9 @@ class AICog(commands.Cog, name="AI"):
                 from groq import AsyncGroq
                 self._groq_client = AsyncGroq(api_key=api_key)
                 self._groq_api_key = api_key
-            except Exception:
+                print(f"[AI] Groq client built. Key starts with: {api_key[:8]}...")
+            except Exception as e:
+                print(f"[AI] Failed to build Groq client: {e}")
                 return None
 
         return self._groq_client
@@ -237,6 +240,30 @@ class AICog(commands.Cog, name="AI"):
             content = "Hello! Say something to me."
 
         await self._send_ai_reply(message, content)
+
+    @app_commands.command(name="checkgroq", description="[Admin] Test whether the Groq AI key is working.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def checkgroq(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        api_key = os.environ.get("GROQ_KEY", "").strip().strip('"').strip("'")
+        if not api_key:
+            await interaction.followup.send("❌ `GROQ_KEY` is not set in the environment.", ephemeral=True)
+            return
+        preview = api_key[:8] + "..." + api_key[-4:]
+        try:
+            result = await self.quick_ai("Say the word 'OK' and nothing else.", system="Reply with only the word OK.")
+            await interaction.followup.send(
+                f"✅ Groq is working.\nKey: `{preview}`\nResponse: `{result}`", ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                f"❌ Groq call failed.\nKey: `{preview}`\nError: `{e}`", ephemeral=True
+            )
+
+    @checkgroq.error
+    async def checkgroq_error(self, interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message("❌ You need **Administrator** permission.", ephemeral=True)
 
     @app_commands.command(name="channel", description="[Admin] Set a channel for the bot to reply to all messages in.")
     @app_commands.describe(channel="The channel to activate (leave empty to disable)")
