@@ -194,13 +194,11 @@ class AICog(commands.Cog, name="AI"):
                 guild_id = message.guild.id if message.guild else None
                 conversation_key = get_conversation_key(message)
 
-                # Add user message to memory
-                add_to_memory(conversation_key, "user", content)
-
-                # Get AI response with conversation history
+                # Get AI response (quick_ai appends the user prompt itself)
                 reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
 
-                # Add bot response to memory
+                # Save both sides to memory after a successful reply
+                add_to_memory(conversation_key, "user", content)
                 add_to_memory(conversation_key, "assistant", reply)
 
                 if len(reply) > 2000:
