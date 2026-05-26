@@ -314,6 +314,8 @@ class AICog(commands.Cog, name="AI"):
         save_personalities(data)
 
         self._groq_client = None
+        # Clear all conversation memory so the old personality can't bleed into new replies
+        conversation_memory.clear()
 
         embed = discord.Embed(
             title="🧠 Personality Updated",
