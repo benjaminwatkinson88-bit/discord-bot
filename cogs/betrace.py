@@ -206,7 +206,7 @@ class BetraceCog(commands.Cog, name="Betrace"):
 
         if not view.bets:
             embed.description = "Nobody bet — race cancelled."
-            embed.color = discord.Color.grayed()
+            embed.color = discord.Color.dark_gray()
             await msg.edit(embed=embed, view=view)
             return
 
