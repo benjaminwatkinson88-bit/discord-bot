@@ -3,63 +3,76 @@ from discord import app_commands
 from discord.ext import commands
 
 
-PUBLIC_FUN_COMMANDS = [
-    ("`/slots`", "Pull the slot machine lever and try your luck!"),
-    ("`/tictactoe @user`", "Challenge someone to Tic Tac Toe"),
-    ("`/rate <prompt>`", "Get a rating for anything"),
-    ("`/compare <thing1> <thing2>`", "See who or what wins in a head-to-head"),
-    ("`/8ball <question>`", "Ask the magic 8 ball"),
-    ("`/roll [sides]`", "Roll a dice (default: d6)"),
-    ("`/coinflip`", "Flip a coin — heads or tails?"),
-    ("`/joke`", "Hear a random joke"),
-    ("`/roast @user`", "Get an AI roast of someone"),
-    ("`/wyr`", "Get a Would You Rather question"),
-    ("`/ship @user1 @user2`", "Check love compatibility between two people"),
-    ("`/trivia`", "AI trivia question (answer revealed in 15s)"),
-    ("`/fact`", "Get a random fun fact"),
-    ("`/rps <choice>`", "Play Rock, Paper, Scissors against the bot"),
-    ("`/riddle`", "Get an AI riddle with a reveal button"),
-    ("`/advice <situation>`", "Get AI advice on any situation"),
-    ("`/mock <text>`", "SpongeBob mocking meme text"),
-    ("`/emojify <text>`", "Turn your text into emoji letters"),
-    ("`/topic`", "Get a random conversation topic"),
-    ("`/horoscope <sign>`", "Get your AI-generated horoscope"),
-    ("`/debate <statement>`", "The AI argues the opposite of your statement"),
+FUN_COMMANDS_1 = [
+    ("`/slots`", "Slot machine"),
+    ("`/tictactoe @user`", "Tic Tac Toe"),
+    ("`/rate <thing>`", "Rate anything"),
+    ("`/compare <a> <b>`", "Head-to-head comparison"),
+    ("`/8ball <question>`", "Magic 8 ball"),
+    ("`/roll [sides]`", "Roll a dice"),
+    ("`/coinflip`", "Heads or tails"),
+    ("`/joke`", "Random joke"),
+    ("`/roast @user`", "AI roast"),
+    ("`/wyr`", "Would You Rather"),
+    ("`/ship @user1 @user2`", "Love compatibility"),
+    ("`/trivia`", "AI trivia question"),
+    ("`/fact`", "Random fun fact"),
+    ("`/rps <choice>`", "Rock Paper Scissors"),
 ]
 
-PUBLIC_AI_COMMANDS = [
-    ("`/story <prompt>`", "Generate an AI story based on your prompt"),
-    ("`/personality`", "See the bot's current AI personality"),
+FUN_COMMANDS_2 = [
+    ("`/riddle`", "AI riddle with reveal button"),
+    ("`/advice <situation>`", "AI advice"),
+    ("`/mock <text>`", "SpongeBob mock text"),
+    ("`/emojify <text>`", "Emoji letters"),
+    ("`/topic`", "Conversation starter"),
+    ("`/horoscope <sign>`", "AI horoscope"),
+    ("`/debate <statement>`", "AI argues opposite"),
+    ("`/fortune`", "Fortune cookie"),
+    ("`/compliment @user`", "Compliment someone"),
+    ("`/pickup`", "Cheesy pickup line"),
+    ("`/wouldyou <question>`", "Bot answers anything"),
+    ("`/story <prompt>`", "AI short story"),
+]
+
+GAME_COMMANDS = [
+    ("`/hangman`", "Hangman — type letters in chat"),
+    ("`/horsle`", "Wordle but the answer is always HORSE"),
+    ("`/racestart`", "Animated horse race"),
+    ("`/betrace`", "Bet XP on a horse race"),
+    ("`/gamble <amount>`", "Coin flip for XP"),
 ]
 
 PUBLIC_UTILITY_COMMANDS = [
-    ("`/invite`", "Get the link to add this bot to your server"),
-    ("`/poll <question> <opt1> <opt2> ...`", "Create a live voting poll"),
-    ("`/serverinfo`", "View info about this server"),
-    ("`/userinfo [@user]`", "View info about a user"),
-    ("`/avatar [@user]`", "View someone's avatar in full size"),
-    ("`/rank [@user]`", "Check your XP level and server rank"),
-    ("`/leaderboard`", "See the top members by XP"),
+    ("`/rank [@user]`", "Check XP level and rank"),
+    ("`/leaderboard`", "Top members by XP"),
+    ("`/invite`", "Add this bot to your server"),
+    ("`/poll <question> <opt1> <opt2>`", "Live voting poll"),
+    ("`/serverinfo`", "Server info"),
+    ("`/userinfo [@user]`", "User info"),
+    ("`/avatar [@user]`", "Full-size avatar"),
+    ("`/personality`", "View the bot's AI personality"),
 ]
 
 ADMIN_COMMANDS = [
-    ("`/settitleall`", "Set titles for all members based on their roles"),
-    ("`/settitle @user`", "Set the title for a specific member"),
-    ("`/removetitle @user`", "Remove the title from a specific member"),
-    ("`/autoemoji on/off`", "Toggle AI auto-emoji for roles with no keyword match"),
-    ("`/titlekeywords`", "View current keyword → emoji mappings"),
-    ("`/addkeyword <keyword> <emoji>`", "Add a custom role keyword mapping"),
-    ("`/removekeyword <keyword>`", "Remove a keyword mapping"),
-    ("`/setpersonality <text>`", "Change the bot's AI personality for this server"),
+    ("`/setpersonality <text>`", "Change the bot's AI personality"),
     ("`/channel [#channel]`", "Set a channel the bot replies to all messages in"),
-    ("`/announce <#channel> <title> <message>`", "Send a formatted announcement"),
     ("`/givexp @user <amount>`", "Give XP to a member"),
     ("`/resetxp @user`", "Reset a member's XP to zero"),
+    ("`/checkgroq`", "Test whether the Groq AI key is working"),
+    ("`/settitleall`", "Set titles for all members by role"),
+    ("`/settitle @user`", "Set a member's title"),
+    ("`/removetitle @user`", "Remove a member's title"),
+    ("`/autoemoji on/off`", "Toggle AI auto-emoji for roles"),
+    ("`/titlekeywords`", "View keyword → emoji mappings"),
+    ("`/addkeyword <keyword> <emoji>`", "Add a keyword mapping"),
+    ("`/removekeyword <keyword>`", "Remove a keyword mapping"),
+    ("`/announce <#ch> <title> <msg>`", "Send a formatted announcement"),
 ]
 
-OTHER_COMMANDS = [
-    ("`/help`", "Show this help menu"),
-]
+
+def fmt(commands):
+    return "\n".join(f"{cmd} — {desc}" for cmd, desc in commands)
 
 
 class HelpCog(commands.Cog, name="Help"):
@@ -70,39 +83,29 @@ class HelpCog(commands.Cog, name="Help"):
     async def help(self, interaction: discord.Interaction):
         is_admin = (
             interaction.user.guild_permissions.administrator
-            if interaction.guild
-            else False
+            if interaction.guild else False
         )
 
         embed = discord.Embed(
             title="📖 Command Help",
             description=(
                 f"Hey **{interaction.user.display_name}**! Here's what I can do.\n"
-                f"Ping me directly to chat with the AI!"
+                f"Ping me or use the AI channel to chat with the bot!"
             ),
             color=discord.Color.blurple()
         )
 
-        fun_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in PUBLIC_FUN_COMMANDS)
-        embed.add_field(name="🎉 Fun Commands", value=fun_text, inline=False)
-
-        ai_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in PUBLIC_AI_COMMANDS)
-        embed.add_field(name="🤖 AI Commands", value=ai_text, inline=False)
-
-        util_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in PUBLIC_UTILITY_COMMANDS)
-        embed.add_field(name="🔧 Utility", value=util_text, inline=False)
+        embed.add_field(name="🎉 Fun Commands", value=fmt(FUN_COMMANDS_1), inline=False)
+        embed.add_field(name="🎉 More Fun Commands", value=fmt(FUN_COMMANDS_2), inline=False)
+        embed.add_field(name="🎮 Games", value=fmt(GAME_COMMANDS), inline=False)
+        embed.add_field(name="🔧 Utility", value=fmt(PUBLIC_UTILITY_COMMANDS), inline=False)
 
         if is_admin:
-            admin_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in ADMIN_COMMANDS)
-            embed.add_field(name="🔒 Admin Commands", value=admin_text, inline=False)
-
-        other_text = "\n".join(f"{cmd} — {desc}" for cmd, desc in OTHER_COMMANDS)
-        embed.add_field(name="ℹ️ Other", value=other_text, inline=False)
+            embed.add_field(name="🔒 Admin Commands", value=fmt(ADMIN_COMMANDS), inline=False)
 
         embed.set_footer(
-            text="Admin commands are only visible to administrators."
-            if not is_admin
-            else "You have administrator access — all commands are shown."
+            text="Admin commands only visible to administrators." if not is_admin
+            else "You have administrator access — all commands shown."
         )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
