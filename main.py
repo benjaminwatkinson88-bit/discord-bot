@@ -35,7 +35,6 @@ class DiscordBot(commands.Bot):
             "cogs.hangman",
             "cogs.horsle",
             "cogs.horsle_game",
-            "cogs.betrace",
             "cogs.gamble",
         ]
         for ext in extensions:
