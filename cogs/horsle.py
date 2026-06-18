@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import math
+from cogs.settings_cog import require_setting, get_setting
 
 DATA_FILE = "data/levels.json"
 
@@ -109,6 +110,10 @@ class HorseBetButton(discord.ui.Button):
         uid = interaction.user.id
         guild_id = interaction.guild_id
 
+        if not get_setting(guild_id, "gambling_enabled"):
+            await interaction.response.send_message("❌ Gambling is disabled in this server.", ephemeral=True)
+            return
+
         if self.race_view.started:
             await interaction.response.send_message("Race already started!", ephemeral=True)
             return
@@ -160,6 +165,7 @@ class HorsleCog(commands.Cog, name="Horsle"):
         self.bot = bot
 
     @app_commands.command(name="racestart", description="Start a horse race! Bet 100 XP before the race begins.")
+    @require_setting("games_enabled")
     async def racestart(self, interaction: discord.Interaction):
         count = random.randint(4, 6)
         names = random.sample(HORSE_NAMES, count)
