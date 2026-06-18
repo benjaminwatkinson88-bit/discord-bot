@@ -11,13 +11,19 @@ DEFAULTS = {
     "ai_channel_replies": True,
     "xp_enabled":         True,
     "levelup_announce":   True,
+    "fun_commands":       True,
+    "games_enabled":      True,
+    "gambling_enabled":   True,
 }
 
 LABELS = {
     "ai_ping_replies":    ("🤖", "AI Ping Replies",       "Bot replies when @mentioned"),
     "ai_channel_replies": ("💬", "AI Channel Replies",    "Bot replies in the set AI channel"),
     "xp_enabled":         ("⭐", "XP System",             "Members earn XP from chatting"),
-    "levelup_announce":   ("📢", "Level-Up Announcements","Level-up messages posted in chat"),
+    "levelup_announce":   ("📢", "Level-Up Alerts",       "Level-up messages posted in chat"),
+    "fun_commands":       ("🎉", "Fun Commands",          "/joke, /roast, /ship, /8ball, /fortune etc."),
+    "games_enabled":      ("🎮", "Games",                 "/hangman, /horsle, /racestart, /tictactoe, /rps"),
+    "gambling_enabled":   ("🎰", "Gambling",              "/gamble and XP betting in /racestart"),
 }
 
 
@@ -57,6 +63,15 @@ def toggle_setting(guild_id, key: str) -> bool:
     return new_val
 
 
+def require_setting(key: str):
+    """app_commands.check decorator — blocks command if the setting is OFF for this guild."""
+    async def predicate(interaction: discord.Interaction) -> bool:
+        if interaction.guild and not get_setting(interaction.guild.id, key):
+            return False
+        return True
+    return app_commands.check(predicate)
+
+
 def build_settings_embed(guild_id) -> discord.Embed:
     embed = discord.Embed(
         title="⚙️ Server Settings",
@@ -70,19 +85,11 @@ def build_settings_embed(guild_id) -> discord.Embed:
     return embed
 
 
-class SettingsView(discord.ui.View):
-    def __init__(self, guild_id: int):
-        super().__init__(timeout=120)
-        self.guild_id = guild_id
-        for key, (icon, name, _) in LABELS.items():
-            self.add_item(ToggleButton(key, icon, name, guild_id))
-
-
 class ToggleButton(discord.ui.Button):
     def __init__(self, key: str, icon: str, name: str, guild_id: int):
         val = get_setting(guild_id, key)
         super().__init__(
-            label=f"{name}",
+            label=name,
             emoji=icon,
             style=discord.ButtonStyle.success if val else discord.ButtonStyle.danger,
         )
@@ -95,12 +102,18 @@ class ToggleButton(discord.ui.Button):
                 "❌ Only admins can change settings.", ephemeral=True
             )
             return
-
         new_val = toggle_setting(self.guild_id, self.key)
         self.style = discord.ButtonStyle.success if new_val else discord.ButtonStyle.danger
-
         embed = build_settings_embed(self.guild_id)
         await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class SettingsView(discord.ui.View):
+    def __init__(self, guild_id: int):
+        super().__init__(timeout=120)
+        self.guild_id = guild_id
+        for key, (icon, name, _) in LABELS.items():
+            self.add_item(ToggleButton(key, icon, name, guild_id))
 
 
 class SettingsCog(commands.Cog, name="Settings"):
@@ -113,13 +126,6 @@ class SettingsCog(commands.Cog, name="Settings"):
         embed = build_settings_embed(interaction.guild.id)
         view = SettingsView(interaction.guild.id)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-
-    @settings.error
-    async def settings_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "❌ You need **Administrator** permission.", ephemeral=True
-            )
 
 
 async def setup(bot):
