@@ -228,6 +228,14 @@ class AICog(commands.Cog, name="AI"):
         is_mentioned = self.bot.user in message.mentions
         in_active_channel = bool(active_channel and message.channel.id == active_channel)
 
+        # Check per-guild settings
+        if guild_id:
+            from cogs.settings_cog import get_setting
+            if is_mentioned and not get_setting(guild_id, "ai_ping_replies"):
+                return
+            if in_active_channel and not get_setting(guild_id, "ai_channel_replies"):
+                return
+
         if not is_mentioned and not in_active_channel:
             return
 
