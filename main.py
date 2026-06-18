@@ -2,10 +2,38 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import os
+import hashlib
+import json
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
+FINGERPRINT_FILE = "data/.sync_fingerprint"
+
+
+def get_fingerprint(extensions: list) -> str:
+    h = hashlib.md5()
+    for ext in sorted(extensions):
+        path = ext.replace(".", "/") + ".py"
+        if os.path.exists(path):
+            h.update(str(os.path.getmtime(path)).encode())
+        h.update(ext.encode())
+    return h.hexdigest()
+
+
+def read_fingerprint() -> str:
+    try:
+        with open(FINGERPRINT_FILE) as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
+def write_fingerprint(fp: str):
+    os.makedirs("data", exist_ok=True)
+    with open(FINGERPRINT_FILE, "w") as f:
+        f.write(fp)
 
 
 class DiscordBot(commands.Bot):
@@ -21,7 +49,6 @@ class DiscordBot(commands.Bot):
         self.tree.allowed_contexts = app_commands.AppCommandContext(
             guild=True, dm_channel=True, private_channel=True
         )
-        self._synced = False
 
     async def setup_hook(self):
         extensions = [
@@ -36,6 +63,7 @@ class DiscordBot(commands.Bot):
             "cogs.horsle",
             "cogs.horsle_game",
             "cogs.gamble",
+            "cogs.settings_cog",
         ]
         for ext in extensions:
             try:
@@ -44,12 +72,21 @@ class DiscordBot(commands.Bot):
             except Exception as e:
                 print(f"Failed to load {ext}: {e}")
 
-        # Sync commands once here — not in on_ready, which fires on every reconnect
-        try:
-            await self.tree.sync()
-            print("Synced all commands globally.")
-        except Exception as e:
-            print(f"Global sync failed: {e}")
+        # Only sync if cog files have changed since the last sync.
+        # Discord keeps commands permanently — re-syncing on every restart
+        # is what causes commands to disappear when two instances compete.
+        current_fp = get_fingerprint(extensions)
+        stored_fp = read_fingerprint()
+
+        if current_fp != stored_fp:
+            try:
+                await self.tree.sync()
+                write_fingerprint(current_fp)
+                print("Commands synced (cogs changed).")
+            except Exception as e:
+                print(f"Sync failed: {e}")
+        else:
+            print("Commands unchanged — skipped sync.")
 
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
