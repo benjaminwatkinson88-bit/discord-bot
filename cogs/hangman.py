@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
+from cogs.settings_cog import require_setting
 
 WORDS = [
     "python", "discord", "elephant", "umbrella", "jazz", "rhythm", "sphinx",
@@ -72,6 +73,7 @@ class HangmanCog(commands.Cog, name="Hangman"):
         self.active: dict[int, HangmanGame] = {}
 
     @app_commands.command(name="hangman", description="Start a game of Hangman! Type letters in chat to guess.")
+    @require_setting("games_enabled")
     async def hangman(self, interaction: discord.Interaction):
         channel_id = interaction.channel_id
         if channel_id in self.active:
