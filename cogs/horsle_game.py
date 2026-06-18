@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from cogs.settings_cog import require_setting
 
 ANSWER = "horse"
 MAX_GUESSES = 6
@@ -78,6 +79,7 @@ class HorsleGameCog(commands.Cog, name="HorsleGame"):
         self.active: dict[int, HorsleGame] = {}
 
     @app_commands.command(name="horsle", description="Horsle — Wordle, but the answer is always HORSE.")
+    @require_setting("games_enabled")
     async def horsle(self, interaction: discord.Interaction):
         channel_id = interaction.channel_id
         if channel_id in self.active:
