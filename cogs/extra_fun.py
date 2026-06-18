@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import random
+from cogs.settings_cog import require_setting
 
 
 def mock_text(text: str) -> str:
@@ -59,14 +60,13 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         self.bot = bot
 
     @app_commands.command(name="riddle", description="Get an AI-generated riddle — can you solve it?")
+    @require_setting("fun_commands")
     async def riddle(self, interaction: discord.Interaction):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             response = await ai_cog.quick_ai(
                 "Create a clever riddle. Format it EXACTLY like this:\n"
@@ -77,32 +77,25 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
             lines = response.strip().split("\n")
             riddle_text = next((l.replace("RIDDLE:", "").strip() for l in lines if l.startswith("RIDDLE:")), None)
             answer_text = next((l.replace("ANSWER:", "").strip() for l in lines if l.startswith("ANSWER:")), None)
-
             if not riddle_text or not answer_text:
                 await interaction.followup.send("Couldn't parse the riddle. Try again!")
                 return
         except Exception as e:
             await interaction.followup.send(f"Couldn't generate a riddle: {e}")
             return
-
-        embed = discord.Embed(
-            title="🧩 Riddle Time!",
-            description=riddle_text,
-            color=discord.Color.purple()
-        )
+        embed = discord.Embed(title="🧩 Riddle Time!", description=riddle_text, color=discord.Color.purple())
         embed.set_footer(text="Think you know the answer? Click reveal when you're ready!")
         await interaction.followup.send(embed=embed, view=RiddleView(answer_text))
 
     @app_commands.command(name="advice", description="Get AI advice on any situation.")
     @app_commands.describe(situation="What do you need advice on?")
+    @require_setting("fun_commands")
     async def advice(self, interaction: discord.Interaction, situation: str):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             advice_text = await ai_cog.quick_ai(
                 f"Give thoughtful, genuine, and practical advice for this situation: {situation}. "
@@ -112,11 +105,7 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         except Exception as e:
             await interaction.followup.send(f"Couldn't generate advice: {e}")
             return
-
-        embed = discord.Embed(
-            title="💬 Advice",
-            color=discord.Color.teal()
-        )
+        embed = discord.Embed(title="💬 Advice", color=discord.Color.teal())
         embed.add_field(name="Your situation", value=f"> {situation}", inline=False)
         embed.add_field(name="Advice", value=advice_text, inline=False)
         embed.set_footer(text=f"Requested by {interaction.user.display_name}")
@@ -124,6 +113,7 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
 
     @app_commands.command(name="mock", description="Turn text into the SpongeBob mocking meme.")
     @app_commands.describe(text="The text to mock")
+    @require_setting("fun_commands")
     async def mock(self, interaction: discord.Interaction, text: str):
         mocked = mock_text(text)
         embed = discord.Embed(
@@ -135,6 +125,7 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
 
     @app_commands.command(name="emojify", description="Turn your text into emoji letters!")
     @app_commands.describe(text="The text to emojify (letters and numbers only)")
+    @require_setting("fun_commands")
     async def emojify(self, interaction: discord.Interaction, text: str):
         if len(text) > 30:
             await interaction.response.send_message(
@@ -142,22 +133,17 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
             )
             return
         result = emojify_text(text)
-        embed = discord.Embed(
-            title="🔤 Emojified",
-            description=result,
-            color=discord.Color.blurple()
-        )
+        embed = discord.Embed(title="🔤 Emojified", description=result, color=discord.Color.blurple())
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="topic", description="Get a random conversation topic to break the silence!")
+    @require_setting("fun_commands")
     async def topic(self, interaction: discord.Interaction):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             topic_text = await ai_cog.quick_ai(
                 "Give me one interesting, fun, and open-ended conversation starter topic or question. "
@@ -167,12 +153,7 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         except Exception as e:
             await interaction.followup.send(f"Couldn't get a topic: {e}")
             return
-
-        embed = discord.Embed(
-            title="💬 Conversation Topic",
-            description=topic_text,
-            color=discord.Color.green()
-        )
+        embed = discord.Embed(title="💬 Conversation Topic", description=topic_text, color=discord.Color.green())
         embed.set_footer(text="Discuss away!")
         await interaction.followup.send(embed=embed)
 
@@ -192,14 +173,13 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         app_commands.Choice(name="♒ Aquarius", value="Aquarius"),
         app_commands.Choice(name="♓ Pisces", value="Pisces"),
     ])
+    @require_setting("fun_commands")
     async def horoscope(self, interaction: discord.Interaction, sign: app_commands.Choice[str]):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             reading = await ai_cog.quick_ai(
                 f"Write a fun, dramatic, and slightly over-the-top daily horoscope for {sign.value}. "
@@ -209,25 +189,19 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         except Exception as e:
             await interaction.followup.send(f"The stars aren't speaking today: {e}")
             return
-
-        embed = discord.Embed(
-            title=f"🔮 {sign.value} Horoscope",
-            description=reading,
-            color=discord.Color.purple()
-        )
+        embed = discord.Embed(title=f"🔮 {sign.value} Horoscope", description=reading, color=discord.Color.purple())
         embed.set_footer(text="For entertainment purposes only ✨")
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="debate", description="Pick a side — the AI will argue the opposite!")
     @app_commands.describe(statement="A statement or opinion for the bot to debate against")
+    @require_setting("fun_commands")
     async def debate(self, interaction: discord.Interaction, statement: str):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             counter = await ai_cog.quick_ai(
                 f"The user says: '{statement}'. Argue confidently and cleverly against this position. "
@@ -237,15 +211,14 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         except Exception as e:
             await interaction.followup.send(f"Couldn't start the debate: {e}")
             return
-
         embed = discord.Embed(title="⚖️ Debate", color=discord.Color.orange())
         embed.add_field(name="Your position", value=f"> {statement}", inline=False)
         embed.add_field(name="Bot's counter-argument", value=counter, inline=False)
         embed.set_footer(text="Do you agree? Disagree? Discuss!")
         await interaction.followup.send(embed=embed)
 
-
     @app_commands.command(name="fortune", description="Crack open a fortune cookie!")
+    @require_setting("fun_commands")
     async def fortune(self, interaction: discord.Interaction):
         fortunes = [
             "A beautiful, smart, and loving person will be coming into your life.",
@@ -272,15 +245,12 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
             "Your talents will be recognised and rewarded.",
         ]
         fortune_text = random.choice(fortunes)
-        embed = discord.Embed(
-            title="🥠 Fortune Cookie",
-            description=f"*{fortune_text}*",
-            color=discord.Color.gold(),
-        )
+        embed = discord.Embed(title="🥠 Fortune Cookie", description=f"*{fortune_text}*", color=discord.Color.gold())
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="compliment", description="Compliment someone!")
     @app_commands.describe(member="Who do you want to compliment?")
+    @require_setting("fun_commands")
     async def compliment(self, interaction: discord.Interaction, member: discord.Member):
         compliments = [
             "has the energy of someone who actually reads the terms and conditions.",
@@ -297,14 +267,12 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
             "is the reason this server has a pulse.",
         ]
         line = random.choice(compliments)
-        embed = discord.Embed(
-            description=f"💖 {member.mention} {line}",
-            color=discord.Color.pink(),
-        )
+        embed = discord.Embed(description=f"💖 {member.mention} {line}", color=discord.Color.pink())
         embed.set_footer(text=f"Compliment delivered by {interaction.user.display_name}")
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="pickup", description="Get a devastatingly cheesy pickup line.")
+    @require_setting("fun_commands")
     async def pickup(self, interaction: discord.Interaction):
         lines = [
             "Are you a parking ticket? Because you've got 'fine' written all over you.",
@@ -334,14 +302,13 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
 
     @app_commands.command(name="wouldyou", description="Ask the bot an impossible question and get an answer.")
     @app_commands.describe(question="Your impossible 'Would you rather' or 'Would you ever' question")
+    @require_setting("fun_commands")
     async def wouldyou(self, interaction: discord.Interaction, question: str):
         await interaction.response.defer()
-
         ai_cog = self.bot.get_cog("AI")
         if not ai_cog:
             await interaction.followup.send("AI is not available right now.")
             return
-
         try:
             answer = await ai_cog.quick_ai(
                 f"Answer this question as yourself (a Discord bot with a personality): '{question}'. "
@@ -351,13 +318,10 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
         except Exception as e:
             await interaction.followup.send(f"Couldn't answer: {e}")
             return
-
         embed = discord.Embed(color=discord.Color.purple())
         embed.add_field(name="❓ The Question", value=f"> {question}", inline=False)
         embed.add_field(name="🤖 My Answer", value=answer, inline=False)
         await interaction.followup.send(embed=embed)
-
-
 
 
 async def setup(bot):
