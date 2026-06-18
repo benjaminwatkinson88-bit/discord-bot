@@ -2,38 +2,30 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import os
-import hashlib
-import json
+import time
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-FINGERPRINT_FILE = "data/.sync_fingerprint"
+SYNC_LOCK_FILE = "data/.sync_lock"
+SYNC_LOCK_TTL = 45  # seconds — prevents two instances from double-syncing
 
 
-def get_fingerprint(extensions: list) -> str:
-    h = hashlib.md5()
-    for ext in sorted(extensions):
-        path = ext.replace(".", "/") + ".py"
-        if os.path.exists(path):
-            h.update(str(os.path.getmtime(path)).encode())
-        h.update(ext.encode())
-    return h.hexdigest()
-
-
-def read_fingerprint() -> str:
-    try:
-        with open(FINGERPRINT_FILE) as f:
-            return f.read().strip()
-    except Exception:
-        return ""
-
-
-def write_fingerprint(fp: str):
+def should_sync() -> bool:
     os.makedirs("data", exist_ok=True)
-    with open(FINGERPRINT_FILE, "w") as f:
-        f.write(fp)
+    now = time.time()
+    try:
+        if os.path.exists(SYNC_LOCK_FILE):
+            with open(SYNC_LOCK_FILE) as f:
+                last = float(f.read().strip())
+            if now - last < SYNC_LOCK_TTL:
+                return False  # Another instance just synced
+    except Exception:
+        pass
+    with open(SYNC_LOCK_FILE, "w") as f:
+        f.write(str(now))
+    return True
 
 
 class DiscordBot(commands.Bot):
@@ -42,12 +34,6 @@ class DiscordBot(commands.Bot):
             command_prefix="!",
             intents=intents,
             help_command=None,
-        )
-        self.tree.allowed_installs = app_commands.AppInstallationType(
-            guild=True, user=True
-        )
-        self.tree.allowed_contexts = app_commands.AppCommandContext(
-            guild=True, dm_channel=True, private_channel=True
         )
 
     async def setup_hook(self):
@@ -72,21 +58,14 @@ class DiscordBot(commands.Bot):
             except Exception as e:
                 print(f"Failed to load {ext}: {e}")
 
-        # Only sync if cog files have changed since the last sync.
-        # Discord keeps commands permanently — re-syncing on every restart
-        # is what causes commands to disappear when two instances compete.
-        current_fp = get_fingerprint(extensions)
-        stored_fp = read_fingerprint()
-
-        if current_fp != stored_fp:
+        if should_sync():
             try:
                 await self.tree.sync()
-                write_fingerprint(current_fp)
-                print("Commands synced (cogs changed).")
+                print("Commands synced.")
             except Exception as e:
                 print(f"Sync failed: {e}")
         else:
-            print("Commands unchanged — skipped sync.")
+            print("Sync skipped — another instance synced recently.")
 
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
@@ -101,6 +80,32 @@ class DiscordBot(commands.Bot):
 
 
 bot = DiscordBot()
+
+
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.CheckFailure):
+        msg = "❌ This feature is disabled in this server. An admin can enable it with `/settings`."
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception:
+            pass
+        return
+    if isinstance(error, app_commands.MissingPermissions):
+        msg = "❌ You need **Administrator** permission to use this command."
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception:
+            pass
+        return
+    print(f"Unhandled app command error: {error}")
+
 
 token = os.environ.get("DISCORD_TOKEN")
 if not token:
