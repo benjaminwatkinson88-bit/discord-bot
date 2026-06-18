@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import math
+from cogs.settings_cog import require_setting
 
 DATA_FILE = "data/levels.json"
 
@@ -382,6 +383,7 @@ class GambleCog(commands.Cog, name="Gamble"):
 
     @app_commands.command(name="gamble", description="Pick a gambling game and bet your XP!")
     @app_commands.describe(amount="How much XP to bet (minimum 10)")
+    @require_setting("gambling_enabled")
     async def gamble(self, interaction: discord.Interaction, amount: int):
         if not interaction.guild:
             await interaction.response.send_message("This only works in a server.", ephemeral=True)
