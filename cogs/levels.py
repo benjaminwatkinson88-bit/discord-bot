@@ -90,6 +90,11 @@ class LevelsCog(commands.Cog, name="Levels"):
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
+
+        from cogs.settings_cog import get_setting
+        if not get_setting(message.guild.id, "xp_enabled"):
+            return
+
         if self._on_cooldown(message.guild.id, message.author.id):
             return
 
@@ -104,7 +109,7 @@ class LevelsCog(commands.Cog, name="Levels"):
             user["level"] = new_level
             save_data(data)
 
-        if new_level > old_level:
+        if new_level > old_level and get_setting(message.guild.id, "levelup_announce"):
             embed = discord.Embed(
                 title="⬆️ Level Up!",
                 description=f"**{message.author.display_name}** just reached **Level {new_level}**! 🎉",
