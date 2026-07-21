@@ -2,30 +2,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import os
-import time
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-
-SYNC_LOCK_FILE = "data/.sync_lock"
-SYNC_LOCK_TTL = 45  # seconds — prevents two instances from double-syncing
-
-
-def should_sync() -> bool:
-    os.makedirs("data", exist_ok=True)
-    now = time.time()
-    try:
-        if os.path.exists(SYNC_LOCK_FILE):
-            with open(SYNC_LOCK_FILE) as f:
-                last = float(f.read().strip())
-            if now - last < SYNC_LOCK_TTL:
-                return False  # Another instance just synced
-    except Exception:
-        pass
-    with open(SYNC_LOCK_FILE, "w") as f:
-        f.write(str(now))
-    return True
 
 
 class DiscordBot(commands.Bot):
@@ -58,14 +38,11 @@ class DiscordBot(commands.Bot):
             except Exception as e:
                 print(f"Failed to load {ext}: {e}")
 
-        if should_sync():
-            try:
-                await self.tree.sync()
-                print("Commands synced.")
-            except Exception as e:
-                print(f"Sync failed: {e}")
-        else:
-            print("Sync skipped — another instance synced recently.")
+        try:
+            synced = await self.tree.sync()
+            print(f"Synced {len(synced)} command(s).")
+        except Exception as e:
+            print(f"Sync failed: {e}")
 
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
