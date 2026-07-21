@@ -43,14 +43,7 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
-        # Sync globally (takes up to 1 hour to propagate everywhere)
-        try:
-            global_cmds = await self.tree.sync()
-            print(f"Global sync: {len(global_cmds)} command(s)")
-        except Exception as e:
-            print(f"Global sync failed: {e}")
-
-        # Also sync to each guild immediately — guild syncs appear within seconds
+        # Sync to each guild immediately — guild commands appear within seconds, no duplicates
         for guild in self.guilds:
             try:
                 self.tree.copy_global_to(guild=guild)
