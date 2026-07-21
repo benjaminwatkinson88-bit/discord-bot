@@ -130,27 +130,6 @@ class FunCog(commands.Cog, name="Fun"):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="slots", description="Pull the slot machine lever and try your luck!")
-    @require_setting("fun_commands")
-    async def slots(self, interaction: discord.Interaction):
-        result = random.choices(SLOT_SYMBOLS, weights=SLOT_WEIGHTS, k=3)
-        display = " | ".join(result)
-        if result[0] == result[1] == result[2]:
-            if result[0] == "7️⃣":
-                outcome = "🎉 **JACKPOT!!!** You hit the big one!"
-            elif result[0] == "💎":
-                outcome = "💎 **DIAMOND MATCH!** Incredible luck!"
-            else:
-                outcome = f"🎊 **Three of a kind!** {result[0]} {result[0]} {result[0]} — Big win!"
-        elif result[0] == result[1] or result[1] == result[2] or result[0] == result[2]:
-            outcome = "✨ **Two of a kind!** Small win — keep going!"
-        else:
-            outcome = "💸 No match this time. Better luck next spin!"
-        embed = discord.Embed(title="🎰 Slot Machine", color=discord.Color.gold())
-        embed.add_field(name="Result", value=f"[ {display} ]", inline=False)
-        embed.add_field(name="Outcome", value=outcome, inline=False)
-        await interaction.response.send_message(embed=embed)
-
     @app_commands.command(name="tictactoe", description="Challenge someone to a game of Tic Tac Toe!")
     @app_commands.describe(opponent="The person you want to challenge")
     @require_setting("games_enabled")
@@ -271,17 +250,6 @@ class FunCog(commands.Cog, name="Fun"):
             embed.set_footer(text="Minimum roll. Ouch.")
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="coinflip", description="Flip a coin — heads or tails?")
-    @require_setting("fun_commands")
-    async def coinflip(self, interaction: discord.Interaction):
-        result = random.choice(["Heads", "Tails"])
-        icon = "🪙" if result == "Heads" else "🌕"
-        embed = discord.Embed(
-            title=f"{icon} Coin Flip",
-            description=f"The coin landed on... **{result}!**",
-            color=discord.Color.gold()
-        )
-        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="joke", description="Hear a random joke!")
     @require_setting("fun_commands")
