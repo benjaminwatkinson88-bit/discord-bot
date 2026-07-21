@@ -4,13 +4,11 @@ from discord.ext import commands
 
 
 FUN_COMMANDS_1 = [
-    ("`/slots`", "Slot machine"),
     ("`/tictactoe @user`", "Tic Tac Toe"),
     ("`/rate <thing>`", "Rate anything"),
     ("`/compare <a> <b>`", "Head-to-head comparison"),
     ("`/8ball <question>`", "Magic 8 ball"),
     ("`/roll [sides]`", "Roll a dice"),
-    ("`/coinflip`", "Heads or tails"),
     ("`/joke`", "Random joke"),
     ("`/roast @user`", "AI roast"),
     ("`/wyr`", "Would You Rather"),
@@ -18,6 +16,7 @@ FUN_COMMANDS_1 = [
     ("`/trivia`", "AI trivia question"),
     ("`/fact`", "Random fun fact"),
     ("`/rps <choice>`", "Rock Paper Scissors"),
+    ("`/massping @user`", "Spam ping a user until stopped"),
 ]
 
 FUN_COMMANDS_2 = [
@@ -38,9 +37,8 @@ FUN_COMMANDS_2 = [
 GAME_COMMANDS = [
     ("`/hangman`", "Hangman — type letters in chat"),
     ("`/horsle`", "Wordle but the answer is always HORSE"),
-    ("`/racestart`", "Animated horse race"),
-    ("`/betrace`", "Bet XP on a horse race"),
-    ("`/gamble <amount>`", "Coin flip for XP"),
+    ("`/racestart`", "Animated horse race with XP betting"),
+    ("`/gamble <amount>`", "Pick from 5 gambling games"),
 ]
 
 PUBLIC_UTILITY_COMMANDS = [
