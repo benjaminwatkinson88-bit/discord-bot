@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import asyncio
-from cogs.settings_cog import get_setting
+from cogs.settings_cog import require_setting
 
 
 class StopView(discord.ui.View):
@@ -32,15 +32,8 @@ class MassPingCog(commands.Cog, name="MassPing"):
 
     @app_commands.command(name="massping", description="Spam ping a user until you press Stop.")
     @app_commands.describe(target="The user to spam ping")
+    @require_setting("massping_enabled")
     async def massping(self, interaction: discord.Interaction, target: discord.Member):
-        # Block self-ping if the setting is off
-        if target.id == interaction.user.id:
-            if not get_setting(interaction.guild.id, "masspig_self"):
-                await interaction.response.send_message(
-                    "❌ You can't mass ping yourself.", ephemeral=True
-                )
-                return
-
         # Block pinging bots
         if target.bot:
             await interaction.response.send_message(
