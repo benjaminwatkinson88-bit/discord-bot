@@ -43,6 +43,14 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
+        # Clear any old globally-registered commands (removes stale ones like old /masspig)
+        try:
+            self.tree.clear_commands(guild=None)
+            await self.tree.sync()
+            print("Cleared global commands")
+        except Exception as e:
+            print(f"Global clear failed: {e}")
+
         # Sync to each guild immediately — guild commands appear within seconds, no duplicates
         for guild in self.guilds:
             try:
