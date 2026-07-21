@@ -30,9 +30,9 @@ class MassPingCog(commands.Cog, name="MassPing"):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="masspig", description="Spam ping a user until you press Stop.")
+    @app_commands.command(name="massping", description="Spam ping a user until you press Stop.")
     @app_commands.describe(target="The user to spam ping")
-    async def masspig(self, interaction: discord.Interaction, target: discord.Member):
+    async def massping(self, interaction: discord.Interaction, target: discord.Member):
         # Block self-ping if the setting is off
         if target.id == interaction.user.id:
             if not get_setting(interaction.guild.id, "masspig_self"):
