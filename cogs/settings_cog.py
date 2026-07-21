@@ -14,7 +14,6 @@ DEFAULTS = {
     "fun_commands":       True,
     "games_enabled":      True,
     "gambling_enabled":   True,
-    "massping_enabled":   False,
 }
 
 LABELS = {
@@ -25,7 +24,6 @@ LABELS = {
     "fun_commands":       ("🎉", "Fun Commands",          "/joke, /roast, /ship, /8ball, /fortune etc."),
     "games_enabled":      ("🎮", "Games",                 "/hangman, /horsle, /racestart, /tictactoe, /rps"),
     "gambling_enabled":   ("🎰", "Gambling",              "/gamble and XP betting in /racestart"),
-    "massping_enabled":   ("🔔", "Mass Ping",              "Allow /massping to be used on anyone"),
 }
 
 
