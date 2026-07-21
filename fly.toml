@@ -1,0 +1,12 @@
+[app]
+name = "blahaj-bot"
+primary_region = "lax"
+
+[build]
+
+[env]
+  PYTHONUNBUFFERED = "1"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
