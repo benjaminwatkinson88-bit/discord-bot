@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import os
+import asyncio
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -18,6 +19,7 @@ class DiscordBot(commands.Bot):
 
     async def setup_hook(self):
         extensions = [
+            "cogs.settings_cog",   # load first — other cogs import from it
             "cogs.fun",
             "cogs.extra_fun",
             "cogs.utility",
@@ -29,24 +31,34 @@ class DiscordBot(commands.Bot):
             "cogs.horsle",
             "cogs.horsle_game",
             "cogs.gamble",
-            "cogs.settings_cog",
             "cogs.masspig",
         ]
         for ext in extensions:
             try:
                 await self.load_extension(ext)
-                print(f"Loaded {ext}")
+                print(f"[OK] Loaded {ext}")
             except Exception as e:
-                print(f"Failed to load {ext}: {e}")
-
-        try:
-            synced = await self.tree.sync()
-            print(f"Synced {len(synced)} command(s).")
-        except Exception as e:
-            print(f"Sync failed: {e}")
+                print(f"[ERROR] Failed to load {ext}: {e}")
 
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
+
+        # Sync globally (takes up to 1 hour to propagate everywhere)
+        try:
+            global_cmds = await self.tree.sync()
+            print(f"Global sync: {len(global_cmds)} command(s)")
+        except Exception as e:
+            print(f"Global sync failed: {e}")
+
+        # Also sync to each guild immediately — guild syncs appear within seconds
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                guild_cmds = await self.tree.sync(guild=guild)
+                print(f"Guild sync [{guild.name}]: {len(guild_cmds)} command(s)")
+            except Exception as e:
+                print(f"Guild sync failed for {guild.name}: {e}")
+
         activity = discord.Activity(
             type=discord.ActivityType.playing,
             name="/help | Powered by AI"
@@ -55,6 +67,13 @@ class DiscordBot(commands.Bot):
 
     async def on_guild_join(self, guild: discord.Guild):
         print(f"Joined new guild: {guild.name}")
+        # Sync commands to the new guild immediately
+        try:
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            print(f"Synced to new guild: {guild.name}")
+        except Exception as e:
+            print(f"Sync failed for new guild {guild.name}: {e}")
 
 
 bot = DiscordBot()
@@ -87,7 +106,17 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 
 token = os.environ.get("DISCORD_TOKEN")
 if not token:
-    print("ERROR: DISCORD_TOKEN is not set. Please add it to Secrets.")
-    exit(1)
+    print("ERROR: DISCORD_TOKEN is not set.")
+    raise SystemExit(1)
 
-bot.run(token)
+try:
+    bot.run(token, log_handler=None)
+except discord.LoginFailure:
+    print("ERROR: Invalid token. Check DISCORD_TOKEN in your Railway environment variables.")
+    raise SystemExit(1)
+except discord.PrivilegedIntentsRequired:
+    print("ERROR: Message Content Intent not enabled. Go to Discord Developer Portal -> Bot -> Privileged Gateway Intents and enable it.")
+    raise SystemExit(1)
+except Exception as e:
+    print(f"ERROR: Bot crashed: {e}")
+    raise
