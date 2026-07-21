@@ -25,7 +25,7 @@ LABELS = {
     "fun_commands":       ("🎉", "Fun Commands",          "/joke, /roast, /ship, /8ball, /fortune etc."),
     "games_enabled":      ("🎮", "Games",                 "/hangman, /horsle, /racestart, /tictactoe, /rps"),
     "gambling_enabled":   ("🎰", "Gambling",              "/gamble and XP betting in /racestart"),
-    "masspig_self":       ("🔔", "Self Mass Ping",        "Allow /masspig used on yourself"),
+    "masspig_self":       ("🔔", "Self Mass Ping",        "Allow /massping used on yourself"),
 }
 
 
