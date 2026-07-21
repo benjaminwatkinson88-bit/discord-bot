@@ -30,6 +30,7 @@ class DiscordBot(commands.Bot):
             "cogs.horsle_game",
             "cogs.gamble",
             "cogs.settings_cog",
+            "cogs.masspig",
         ]
         for ext in extensions:
             try:
@@ -62,7 +63,7 @@ bot = DiscordBot()
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CheckFailure):
-        msg = "❌ This feature is disabled in this server. An admin can enable it with `/settings`."
+        msg = "❌ This command is disabled."
         try:
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
