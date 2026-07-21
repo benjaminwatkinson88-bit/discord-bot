@@ -17,6 +17,7 @@ FUN_COMMANDS_1 = [
     ("`/fact`", "Random fun fact"),
     ("`/rps <choice>`", "Rock Paper Scissors"),
     ("`/massping @user`", "Spam ping a user until stopped"),
+    ("`/massprotect`", "Toggle mass ping protection on yourself"),
 ]
 
 FUN_COMMANDS_2 = [
