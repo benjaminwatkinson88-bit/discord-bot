@@ -113,18 +113,26 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
 
         from cogs.ai_cog import get_personality, DEFAULT_PERSONALITY
 
+        SELFTALK_SUFFIX = (
+            " You are currently in a live back-and-forth conversation with another version of yourself "
+            "who has a different personality. Be thoughtful, opinionated, and intellectually engaged — "
+            "push back, ask questions, or explore ideas in depth. Avoid generic or surface-level replies. "
+            "Keep responses concise (2-4 sentences) but substantive."
+        )
+
         if persona_index == 0:
-            system = get_personality(guild_id)
+            base = get_personality(guild_id)
+            system = base + SELFTALK_SUFFIX
         else:
             p2 = get_personality2(guild_id)
             if p2:
                 system = (
                     f"You are a Discord bot with the following personality: {p2}. "
-                    f"Always stay fully in character. Never break character or explain that you're an AI. "
-                    f"Keep responses concise and fitting to your personality."
+                    f"Always stay fully in character. Never break character or explain that you're an AI."
+                    + SELFTALK_SUFFIX
                 )
             else:
-                system = DEFAULT_PERSONALITY
+                system = DEFAULT_PERSONALITY + SELFTALK_SUFFIX
 
         content = message.content
         if not content:
@@ -143,6 +151,7 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                     content,
                     guild_id=guild_id,
                     system=system,
+                    model="llama-3.3-70b-versatile",
                 )
                 if len(reply) > 2000:
                     reply = reply[:1997] + "..."
