@@ -208,6 +208,8 @@ class AICog(commands.Cog, name="AI"):
                     reply = reply[:1997] + "..."
                 await message.reply(reply)
             except Exception as e:
+                if "429" in str(e) or "rate_limit" in str(e).lower():
+                    return  # silently drop rate limit errors
                 await message.reply(f"⚠️ Something went wrong with the AI: {e}")
 
     @commands.Cog.listener()
