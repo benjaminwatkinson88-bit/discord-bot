@@ -71,8 +71,8 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         self._turns: dict[int, int] = {}
         # Per-channel current persona index (0 = personality1, 1 = personality2)
         self._persona: dict[int, int] = {}
-        # IDs of messages the bot sent as part of self-talk (to avoid double-triggering)
-        self._selftalk_ids: set[int] = set()
+        # Channels currently being processed — prevents concurrent double-firing
+        self._processing: set[int] = set()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -91,11 +91,11 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         if message.author.id != self.bot.user.id:
             return
 
-        # Don't double-trigger on messages we already sent as self-talk
-        if message.id in self._selftalk_ids:
+        if not get_selftalk_enabled(guild_id):
             return
 
-        if not get_selftalk_enabled(guild_id):
+        # Skip if this channel is already mid-generation (prevents double-trigger)
+        if channel_id in self._processing:
             return
 
         # Enforce turn limit unless infinite mode is on
@@ -143,30 +143,44 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         if not content:
             content = "Say something interesting."
 
-        await asyncio.sleep(1.2)  # small pause so it feels like a conversation
-
+        self._processing.add(channel_id)
         try:
+            await asyncio.sleep(1.2)  # small pause so it feels like a conversation
+
             async with message.channel.typing():
-                reply = await ai_cog.quick_ai(
-                    content,
-                    guild_id=guild_id,
-                    system=system,
-                    model="llama-3.3-70b-versatile",
-                )
+                try:
+                    reply = await ai_cog.quick_ai(
+                        content,
+                        guild_id=guild_id,
+                        system=system,
+                        model="llama-3.3-70b-versatile",
+                    )
+                except Exception as e:
+                    if "429" in str(e) or "rate_limit" in str(e).lower():
+                        # Rate limited — wait and retry once before giving up
+                        await asyncio.sleep(4)
+                        try:
+                            reply = await ai_cog.quick_ai(
+                                content,
+                                guild_id=guild_id,
+                                system=system,
+                                model="llama-3.3-70b-versatile",
+                            )
+                        except Exception:
+                            return
+                    else:
+                        print(f"[SelfTalk] Error generating reply: {e}")
+                        return
+
                 if len(reply) > 2000:
                     reply = reply[:1997] + "..."
 
-            sent = await message.channel.send(reply)
-            self._selftalk_ids.add(sent.id)
-
-            # Keep the set from growing unboundedly
-            if len(self._selftalk_ids) > 500:
-                self._selftalk_ids.clear()
-
+            await message.channel.send(reply)
             self._turns[channel_id] = turns + 1
 
-        except Exception as e:
-            print(f"[SelfTalk] Error generating reply: {e}")
+        finally:
+            # Always release the lock so the next message can be processed
+            self._processing.discard(channel_id)
 
     @app_commands.command(name="selftalk", description="[Admin] Toggle the bot talking to itself.")
     @app_commands.describe(toggle="Turn self-talk on or off")
