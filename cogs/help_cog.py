@@ -55,6 +55,8 @@ PUBLIC_UTILITY_COMMANDS = [
 
 ADMIN_COMMANDS = [
     ("`/setpersonality <text>`", "Change the bot's AI personality"),
+    ("`/setpersonality2 <text>`", "Set the second self-talk personality"),
+    ("`/selftalk on/off`", "Toggle the bot talking to itself"),
     ("`/channel [#channel]`", "Set a channel the bot replies to all messages in"),
     ("`/givexp @user <amount>`", "Give XP to a member"),
     ("`/resetxp @user`", "Reset a member's XP to zero"),
