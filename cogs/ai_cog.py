@@ -160,7 +160,7 @@ class AICog(commands.Cog, name="AI"):
 
         return self._groq_client
 
-    async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None) -> str:
+    async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None, model: str = None) -> str:
         """Send a prompt to AI with optional conversation history"""
         client = self.get_groq_client()
         if not client:
@@ -180,7 +180,7 @@ class AICog(commands.Cog, name="AI"):
         messages.append({"role": "user", "content": prompt})
 
         response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=model or "llama-3.1-8b-instant",
             messages=messages,
             max_tokens=512,
         )
