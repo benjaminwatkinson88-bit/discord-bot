@@ -33,12 +33,25 @@ def get_personality2(guild_id: int) -> str | None:
     return load_selftalk().get(str(guild_id), {}).get("personality2", None)
 
 
+def get_selftalk_infinite(guild_id: int) -> bool:
+    return load_selftalk().get(str(guild_id), {}).get("infinite", False)
+
+
 def set_selftalk_enabled(guild_id: int, value: bool):
     data = load_selftalk()
     g = str(guild_id)
     if g not in data:
         data[g] = {}
     data[g]["enabled"] = value
+    save_selftalk(data)
+
+
+def set_selftalk_infinite(guild_id: int, value: bool):
+    data = load_selftalk()
+    g = str(guild_id)
+    if g not in data:
+        data[g] = {}
+    data[g]["infinite"] = value
     save_selftalk(data)
 
 
@@ -85,9 +98,9 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         if not get_selftalk_enabled(guild_id):
             return
 
-        # Enforce turn limit
+        # Enforce turn limit unless infinite mode is on
         turns = self._turns.get(channel_id, 0)
-        if turns >= MAX_TURNS:
+        if not get_selftalk_infinite(guild_id) and turns >= MAX_TURNS:
             return
 
         # Decide which personality responds next
@@ -193,8 +206,35 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         embed.set_footer(text=f"Set by {interaction.user.display_name}")
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="selftalkinfinity", description="[Admin] Toggle whether self-talk runs infinitely or stops after a few exchanges.")
+    @app_commands.describe(toggle="On = run forever, Off = stop after 12 exchanges")
+    @app_commands.choices(toggle=[
+        app_commands.Choice(name="On", value="on"),
+        app_commands.Choice(name="Off", value="off"),
+    ])
+    @app_commands.checks.has_permissions(administrator=True)
+    async def selftalkinfinity(self, interaction: discord.Interaction, toggle: app_commands.Choice[str]):
+        enabled = toggle.value == "on"
+        set_selftalk_infinite(interaction.guild.id, enabled)
+
+        if enabled:
+            embed = discord.Embed(
+                title="♾️ Infinite Self-Talk ON",
+                description="The bot will now respond to itself forever with no turn limit.\nUse `/selftalk off` or `/selftalkinfinity off` to stop it.",
+                color=discord.Color.og_blurple(),
+            )
+        else:
+            embed = discord.Embed(
+                title="🔢 Infinite Self-Talk OFF",
+                description=f"The bot will pause after **{MAX_TURNS}** exchanges and wait for a human to speak.",
+                color=discord.Color.red(),
+            )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
     @selftalk.error
     @setpersonality2.error
+    @selftalkinfinity.error
     async def admin_error(self, interaction: discord.Interaction, error):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message(
