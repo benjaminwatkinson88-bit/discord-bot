@@ -144,6 +144,7 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
             content = "Say something interesting."
 
         self._processing.add(channel_id)
+        reply = None
         try:
             await asyncio.sleep(1.2)  # small pause so it feels like a conversation
 
@@ -157,7 +158,7 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                     )
                 except Exception as e:
                     if "429" in str(e) or "rate_limit" in str(e).lower():
-                        # Rate limited — wait and retry once before giving up
+                        # Rate limited — wait and retry once
                         await asyncio.sleep(4)
                         try:
                             reply = await ai_cog.quick_ai(
@@ -167,20 +168,20 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                                 model="llama-3.3-70b-versatile",
                             )
                         except Exception:
-                            return
+                            pass
                     else:
                         print(f"[SelfTalk] Error generating reply: {e}")
-                        return
 
-                if len(reply) > 2000:
-                    reply = reply[:1997] + "..."
-
-            await message.channel.send(reply)
-            self._turns[channel_id] = turns + 1
+            if reply and len(reply) > 2000:
+                reply = reply[:1997] + "..."
 
         finally:
-            # Always release the lock so the next message can be processed
+            # Release lock BEFORE sending so on_message for the reply isn't blocked
             self._processing.discard(channel_id)
+
+        if reply:
+            await message.channel.send(reply)
+            self._turns[channel_id] = turns + 1
 
     @app_commands.command(name="selftalk", description="[Admin] Toggle the bot talking to itself.")
     @app_commands.describe(toggle="Turn self-talk on or off")
