@@ -392,7 +392,8 @@ class GambleCog(commands.Cog, name="Gamble"):
             await interaction.response.send_message("Minimum bet is **10 XP**.", ephemeral=True)
             return
 
-        guild_id = interaction.guild.id if interaction.guild else None
+        owners = getattr(interaction, 'authorizing_integration_owners', {})
+        guild_id = interaction.guild.id if (interaction.guild and discord.AppInstallationType.guild in owners) else None
 
         if guild_id is not None:
             current_xp = get_xp(guild_id, interaction.user.id)
