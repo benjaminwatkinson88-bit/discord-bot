@@ -121,7 +121,8 @@ class LevelsCog(commands.Cog, name="Levels"):
     @app_commands.command(name="rank", description="Check your XP and level rank.")
     @app_commands.describe(member="The member to check (defaults to you)")
     async def rank(self, interaction: discord.Interaction, member: discord.Member = None):
-        if not interaction.guild:
+        owners = getattr(interaction, 'authorizing_integration_owners', {})
+        if not interaction.guild or discord.AppInstallationType.guild not in owners:
             await interaction.response.send_message(
                 "📊 `/rank` only works inside a server — XP is tracked per server.", ephemeral=True
             )
@@ -154,7 +155,8 @@ class LevelsCog(commands.Cog, name="Levels"):
 
     @app_commands.command(name="leaderboard", description="See the top members by XP in this server.")
     async def leaderboard(self, interaction: discord.Interaction):
-        if not interaction.guild:
+        owners = getattr(interaction, 'authorizing_integration_owners', {})
+        if not interaction.guild or discord.AppInstallationType.guild not in owners:
             await interaction.response.send_message(
                 "🏆 `/leaderboard` only works inside a server — XP is tracked per server.", ephemeral=True
             )
