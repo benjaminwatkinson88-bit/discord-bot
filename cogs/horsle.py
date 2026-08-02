@@ -108,9 +108,9 @@ class HorseBetButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         uid = interaction.user.id
-        guild_id = interaction.guild_id
+        guild_id = interaction.guild_id  # None when used as personal app
 
-        if not get_setting(guild_id, "gambling_enabled"):
+        if guild_id and not get_setting(guild_id, "gambling_enabled"):
             await interaction.response.send_message("❌ Gambling is disabled in this server.", ephemeral=True)
             return
 
@@ -128,24 +128,23 @@ class HorseBetButton(discord.ui.Button):
             # Refund old bet and switch
             change_xp(guild_id, uid, BET_AMOUNT)
 
-        xp = get_xp(guild_id, uid)
-        if xp < BET_AMOUNT:
-            await interaction.response.send_message(
-                f"You need **{BET_AMOUNT} XP** to bet but only have **{xp:,} XP**.",
-                ephemeral=True,
-            )
-            return
+        if guild_id:
+            xp = get_xp(guild_id, uid)
+            if xp < BET_AMOUNT:
+                await interaction.response.send_message(
+                    f"You need **{BET_AMOUNT} XP** to bet but only have **{xp:,} XP**.",
+                    ephemeral=True,
+                )
+                return
+            change_xp(guild_id, uid, -BET_AMOUNT)
 
-        change_xp(guild_id, uid, -BET_AMOUNT)
         self.race_view.bets[uid] = (self.index, interaction.user.display_name)
 
         embed = interaction.message.embeds[0]
         embed.set_field_at(0, name="💰 Bets", value=self.race_view.bet_summary(), inline=False)
         await interaction.response.edit_message(embed=embed, view=self.race_view)
-        await interaction.followup.send(
-            f"🎰 Bet **{BET_AMOUNT} XP** on **{self.label}**! Win = **{BET_AMOUNT * 2} XP** back.",
-            ephemeral=True,
-        )
+        bet_note = f"Bet **{BET_AMOUNT} XP** on **{self.label}**! Win = **{BET_AMOUNT * 2} XP** back." if guild_id else f"Cheering for **{self.label}**! 🎮 No XP — playing for fun."
+        await interaction.followup.send(f"🎰 {bet_note}", ephemeral=True)
 
 
 class StartButton(discord.ui.Button):
@@ -244,10 +243,16 @@ class HorsleCog(commands.Cog, name="Horsle"):
         losses = []
         for uid, (horse_idx, display_name) in view.bets.items():
             if horse_idx == winning_horse:
-                change_xp(guild_id, uid, BET_AMOUNT * 2)
-                payouts.append(f"🎉 **{display_name}** +{BET_AMOUNT * 2:,} XP")
+                if guild_id:
+                    change_xp(guild_id, uid, BET_AMOUNT * 2)
+                    payouts.append(f"🎉 **{display_name}** +{BET_AMOUNT * 2:,} XP")
+                else:
+                    payouts.append(f"🎉 **{display_name}** picked the winner!")
             else:
-                losses.append(f"💸 **{display_name}** -{BET_AMOUNT:,} XP")
+                if guild_id:
+                    losses.append(f"💸 **{display_name}** -{BET_AMOUNT:,} XP")
+                else:
+                    losses.append(f"💸 **{display_name}** — better luck next time")
 
         if payouts or losses:
             result_text = "\n".join(payouts + losses)
