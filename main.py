@@ -49,12 +49,20 @@ class DiscordBot(commands.Bot):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
         # Global sync only — required for user-install (personal app) to work.
-        # Guild-specific syncs are not used: they'd cause duplicate commands.
         try:
             cmds = await self.tree.sync()
             print(f"Global sync: {len(cmds)} command(s)")
         except Exception as e:
             print(f"Global sync failed: {e}")
+
+        # Clear any guild-specific commands left over from previous syncs (they cause duplicates).
+        for guild in self.guilds:
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"Cleared guild commands [{guild.name}]")
+            except Exception as e:
+                print(f"Failed to clear guild commands [{guild.name}]: {e}")
 
         activity = discord.Activity(
             type=discord.ActivityType.playing,
