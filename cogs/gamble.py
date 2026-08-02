@@ -28,11 +28,15 @@ def save_data(data):
 
 
 def get_xp(guild_id, user_id):
+    if guild_id is None:
+        return 0
     data = load_data()
     return data.get(str(guild_id), {}).get(str(user_id), {}).get("xp", 0)
 
 
 def change_xp(guild_id, user_id, amount):
+    if guild_id is None:
+        return
     data = load_data()
     g, u = str(guild_id), str(user_id)
     if g not in data:
@@ -42,6 +46,15 @@ def change_xp(guild_id, user_id, amount):
     data[g][u]["xp"] = max(0, data[g][u]["xp"] + amount)
     data[g][u]["level"] = int(math.sqrt(data[g][u]["xp"] / 100))
     save_data(data)
+
+
+def xp_line(guild_id, user_id, delta):
+    """Result line shown after a game — fun mode when used outside a server."""
+    if guild_id is None:
+        return "🎮 Playing for fun — no XP tracked"
+    bal = get_xp(guild_id, user_id)
+    sign = f"+{delta:,}" if delta >= 0 else f"{delta:,}"
+    return f"{sign} XP → Balance: **{bal:,} XP**"
 
 
 # ──────────────────────────────────────────────
@@ -72,12 +85,10 @@ class CoinFlipView(discord.ui.View):
         won = result.lower() == picked.lower()
         if won:
             change_xp(self.guild_id, self.user_id, self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🟢 **{result}!** You picked {picked} — **correct!**\n+{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🟢 **{result}!** You picked {picked} — **correct!**\n{xp_line(self.guild_id, self.user_id, self.amount)}"
         else:
             change_xp(self.guild_id, self.user_id, -self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🔴 **{result}!** You picked {picked} — **wrong.**\n-{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🔴 **{result}!** You picked {picked} — **wrong.**\n{xp_line(self.guild_id, self.user_id, -self.amount)}"
         try:
             await interaction.edit_original_response(content=text, view=None)
         except Exception:
@@ -130,12 +141,10 @@ class DiceView(discord.ui.View):
 
         if won:
             change_xp(self.guild_id, self.user_id, self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🟢 Rolled **{self.DICE_EMOJI[roll-1]} {roll}** — {label} was right!\n+{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🟢 Rolled **{self.DICE_EMOJI[roll-1]} {roll}** — {label} was right!\n{xp_line(self.guild_id, self.user_id, self.amount)}"
         else:
             change_xp(self.guild_id, self.user_id, -self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🔴 Rolled **{self.DICE_EMOJI[roll-1]} {roll}** — {label} was wrong.\n-{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🔴 Rolled **{self.DICE_EMOJI[roll-1]} {roll}** — {label} was wrong.\n{xp_line(self.guild_id, self.user_id, -self.amount)}"
         try:
             await interaction.edit_original_response(content=text, view=None)
         except Exception:
@@ -211,12 +220,10 @@ class SlotsView(discord.ui.View):
         final = spin_slots()
         net, desc = slots_payout(final, self.amount)
         change_xp(self.guild_id, self.user_id, net)
-        new_xp = get_xp(self.guild_id, self.user_id)
         sign = "🟢" if net >= 0 else "🔴"
-        xp_str = f"+{net:,}" if net >= 0 else f"{net:,}"
         try:
             await interaction.edit_original_response(
-                content=f"🎰  **{final[0]} | {final[1]} | {final[2]}**\n\n{sign} {desc}\n{xp_str} XP → Balance: **{new_xp:,} XP**",
+                content=f"🎰  **{final[0]} | {final[1]} | {final[2]}**\n\n{sign} {desc}\n{xp_line(self.guild_id, self.user_id, net)}",
                 view=None,
             )
         except Exception:
@@ -260,12 +267,10 @@ class CardView(discord.ui.View):
 
         if won:
             change_xp(self.guild_id, self.user_id, self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🟢 Drew **{val}{suit}** ({color_word}) — you picked {picked_word}, correct!\n+{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🟢 Drew **{val}{suit}** ({color_word}) — you picked {picked_word}, correct!\n{xp_line(self.guild_id, self.user_id, self.amount)}"
         else:
             change_xp(self.guild_id, self.user_id, -self.amount)
-            new_xp = get_xp(self.guild_id, self.user_id)
-            text = f"🔴 Drew **{val}{suit}** ({color_word}) — you picked {picked_word}, wrong.\n-{self.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🔴 Drew **{val}{suit}** ({color_word}) — you picked {picked_word}, wrong.\n{xp_line(self.guild_id, self.user_id, -self.amount)}"
         try:
             await interaction.edit_original_response(content=text, view=None)
         except Exception:
@@ -322,12 +327,10 @@ class NumberButton(discord.ui.Button):
         if won:
             payout = self.nview.amount * 4
             change_xp(self.nview.guild_id, self.nview.user_id, payout)
-            new_xp = get_xp(self.nview.guild_id, self.nview.user_id)
-            text = f"🟢 You guessed **{self.number}** — correct! 4× payout!\n+{payout:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🟢 You guessed **{self.number}** — correct! 4× payout!\n{xp_line(self.nview.guild_id, self.nview.user_id, payout)}"
         else:
             change_xp(self.nview.guild_id, self.nview.user_id, -self.nview.amount)
-            new_xp = get_xp(self.nview.guild_id, self.nview.user_id)
-            text = f"🔴 You guessed **{self.number}** — it was **{self.nview.secret}**.\n-{self.nview.amount:,} XP → Balance: **{new_xp:,} XP**"
+            text = f"🔴 You guessed **{self.number}** — it was **{self.nview.secret}**.\n{xp_line(self.nview.guild_id, self.nview.user_id, -self.nview.amount)}"
         await interaction.response.edit_message(content=text, embed=None, view=self.nview)
 
 
@@ -385,26 +388,27 @@ class GambleCog(commands.Cog, name="Gamble"):
     @app_commands.describe(amount="How much XP to bet (minimum 10)")
     @require_setting("gambling_enabled")
     async def gamble(self, interaction: discord.Interaction, amount: int):
-        if not interaction.guild:
-            await interaction.response.send_message("This only works in a server.", ephemeral=True)
-            return
         if amount < 10:
             await interaction.response.send_message("Minimum bet is **10 XP**.", ephemeral=True)
             return
 
-        current_xp = get_xp(interaction.guild.id, interaction.user.id)
-        if current_xp < amount:
-            await interaction.response.send_message(
-                f"You only have **{current_xp:,} XP** — can't bet **{amount:,} XP**.",
-                ephemeral=True,
-            )
-            return
+        guild_id = interaction.guild.id if interaction.guild else None
 
-        view = GamePickerView(interaction.user.id, interaction.guild.id, amount)
+        if guild_id is not None:
+            current_xp = get_xp(guild_id, interaction.user.id)
+            if current_xp < amount:
+                await interaction.response.send_message(
+                    f"You only have **{current_xp:,} XP** — can't bet **{amount:,} XP**.",
+                    ephemeral=True,
+                )
+                return
+
+        view = GamePickerView(interaction.user.id, guild_id, amount)
+        fun_note = "" if guild_id else "\n*🎮 Playing for fun — no XP tracked*"
         embed = discord.Embed(
             title="🎲 Gambling Den",
             description=(
-                f"**Bet:** {amount:,} XP\n\n"
+                f"**Bet:** {amount:,} XP{fun_note}\n\n"
                 "Pick a game below:"
             ),
             color=discord.Color.dark_gold(),
