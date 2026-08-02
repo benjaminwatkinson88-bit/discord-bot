@@ -108,7 +108,8 @@ class HorseBetButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         uid = interaction.user.id
-        guild_id = interaction.guild_id  # None when used as personal app
+        owners = getattr(interaction, 'authorizing_integration_owners', {})
+        guild_id = interaction.guild_id if discord.AppInstallationType.guild in owners else None
 
         if guild_id and not get_setting(guild_id, "gambling_enabled"):
             await interaction.response.send_message("❌ Gambling is disabled in this server.", ephemeral=True)
@@ -172,17 +173,21 @@ class HorsleCog(commands.Cog, name="Horsle"):
         positions = [0] * count
         finished = []
 
-        guild_id = interaction.guild_id or 0
-        view = RaceView(names, guild_id)
+        owners = getattr(interaction, 'authorizing_integration_owners', {})
+        guild_id = interaction.guild_id if discord.AppInstallationType.guild in owners else None
+        view = RaceView(names, guild_id or 0)
 
+        fun_note = "" if guild_id else "\n*🎮 Playing for fun — no XP tracked*"
         horses_list = "\n".join(f"{emojis[i]} **{name}**" for i, name in enumerate(names))
         embed = discord.Embed(
             title="🏟️ Horse Race — Place Your Bets!",
             description=(
                 f"{horses_list}\n\n"
-                f"*Click a horse to bet **{BET_AMOUNT} XP** on it. "
-                f"Winners get **{BET_AMOUNT * 2} XP** back.*\n"
-                f"*Race starts in 20s or click Start Race!*"
+                + (f"*Click a horse to bet **{BET_AMOUNT} XP** on it. "
+                   f"Winners get **{BET_AMOUNT * 2} XP** back.*\n"
+                   if guild_id else
+                   "*Click a horse to cheer it on!*\n")
+                + f"*Race starts in 20s or click Start Race!*{fun_note}"
             ),
             color=discord.Color.yellow(),
         )
