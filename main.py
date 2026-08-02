@@ -18,6 +18,10 @@ class DiscordBot(commands.Bot):
         )
 
     async def setup_hook(self):
+        # Allow commands to work when bot is installed as a personal/user app
+        self.tree.allowed_installs = app_commands.AllowedInstalls(guilds=True, users=True)
+        self.tree.allowed_contexts = app_commands.AllowedContexts(guilds=True, dms=True, private_channels=True)
+
         extensions = [
             "cogs.settings_cog",   # load first — other cogs import from it
             "cogs.fun",
