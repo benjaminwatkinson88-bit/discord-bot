@@ -48,38 +48,19 @@ class DiscordBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user} (ID: {self.user.id})")
 
-        # Sync to each guild first (while the tree still has all commands)
-        for guild in self.guilds:
-            try:
-                self.tree.copy_global_to(guild=guild)
-                guild_cmds = await self.tree.sync(guild=guild)
-                print(f"Guild sync [{guild.name}]: {len(guild_cmds)} command(s)")
-            except Exception as e:
-                print(f"Guild sync failed for {guild.name}: {e}")
-
-        # Now clear old globally-registered commands (removes stale ones like old /masspig)
+        # Global sync only — required for user-install (personal app) to work.
+        # Guild-specific syncs are not used: they'd cause duplicate commands.
         try:
-            self.tree.clear_commands(guild=None)
-            await self.tree.sync()
-            print("Cleared global commands")
+            cmds = await self.tree.sync()
+            print(f"Global sync: {len(cmds)} command(s)")
         except Exception as e:
-            print(f"Global clear failed: {e}")
+            print(f"Global sync failed: {e}")
 
         activity = discord.Activity(
             type=discord.ActivityType.playing,
             name="/help | Powered by AI"
         )
         await self.change_presence(activity=activity)
-
-    async def on_guild_join(self, guild: discord.Guild):
-        print(f"Joined new guild: {guild.name}")
-        # Sync commands to the new guild immediately
-        try:
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print(f"Synced to new guild: {guild.name}")
-        except Exception as e:
-            print(f"Sync failed for new guild {guild.name}: {e}")
 
 
 bot = DiscordBot()
