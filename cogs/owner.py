@@ -98,9 +98,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     async def say_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CheckFailure):
             try:
-                await interaction.response.send_message(
-                    "❌ This command is owner-only.", ephemeral=True
-                )
+                await interaction.response.send_message("no", ephemeral=True)
             except Exception:
                 pass
 
