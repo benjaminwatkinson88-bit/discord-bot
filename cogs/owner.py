@@ -16,7 +16,7 @@ class OwnerCog(commands.Cog, name="Owner"):
     @app_commands.describe(
         message="What the bot should say",
         channel_id="Channel ID to send to (paste any channel ID — works from DMs too)",
-        user="Send as a DM to this user instead",
+        user="Username or user ID to DM (no need to share a server if you use their ID)",
     )
     @app_commands.check(is_owner)
     async def say(
@@ -24,16 +24,41 @@ class OwnerCog(commands.Cog, name="Owner"):
         interaction: discord.Interaction,
         message: str,
         channel_id: str = None,
-        user: discord.User = None,
+        user: str = None,
     ):
         await interaction.response.defer(ephemeral=True)
 
-        # DM a specific user
+        # DM a user by username or ID
         if user is not None:
+            target_user = None
+
+            # Try as a numeric user ID first (works without a shared server)
             try:
-                await user.send(message)
+                uid = int(user.strip().lstrip('<@!>'))
+                target_user = interaction.client.get_user(uid) or await interaction.client.fetch_user(uid)
+            except (ValueError, discord.NotFound):
+                pass
+
+            # Fall back: search cached users by username / display name
+            if target_user is None:
+                search = user.strip().lower()
+                target_user = discord.utils.find(
+                    lambda u: u.name.lower() == search or u.display_name.lower() == search,
+                    interaction.client.users,
+                )
+
+            if target_user is None:
                 await interaction.followup.send(
-                    f"✅ DM sent to **{user.display_name}**.", ephemeral=True
+                    f"❌ Couldn't find a user matching **{user}**. "
+                    "If they don't share a server with the bot, use their user ID instead.",
+                    ephemeral=True,
+                )
+                return
+
+            try:
+                await target_user.send(message)
+                await interaction.followup.send(
+                    f"✅ DM sent to **{target_user.display_name}**.", ephemeral=True
                 )
             except discord.Forbidden:
                 await interaction.followup.send(
