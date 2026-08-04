@@ -37,6 +37,7 @@ class DiscordBot(commands.Bot):
             "cogs.gamble",
             "cogs.masspig",
             "cogs.selftalk",
+            "cogs.owner",
         ]
         for ext in extensions:
             try:
