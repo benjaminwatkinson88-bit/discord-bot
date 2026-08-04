@@ -32,25 +32,13 @@ class OwnerCog(commands.Cog, name="Owner"):
         if user is not None:
             target_user = None
 
-            # Try as a numeric user ID first (works without a shared server)
+            # Look up by user ID
             try:
-                uid = int(user.strip().lstrip('<@!>'))
+                uid = int(user.strip())
                 target_user = interaction.client.get_user(uid) or await interaction.client.fetch_user(uid)
             except (ValueError, discord.NotFound):
-                pass
-
-            # Fall back: search cached users by username / display name
-            if target_user is None:
-                search = user.strip().lower()
-                target_user = discord.utils.find(
-                    lambda u: u.name.lower() == search or u.display_name.lower() == search,
-                    interaction.client.users,
-                )
-
-            if target_user is None:
                 await interaction.followup.send(
-                    f"❌ Couldn't find a user matching **{user}**. "
-                    "If they don't share a server with the bot, use their user ID instead.",
+                    "❌ Couldn't find that user. Make sure you're providing a valid user ID.",
                     ephemeral=True,
                 )
                 return
