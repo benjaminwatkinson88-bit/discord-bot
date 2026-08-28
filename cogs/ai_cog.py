@@ -48,9 +48,11 @@ def get_personality(guild_id: int) -> str:
     custom = data.get(str(guild_id))
     if custom:
         return (
-            f"You are a Discord bot with the following personality: {custom}. "
-            f"Always stay fully in character. Never break character or explain that you're an AI. "
-            f"Keep responses concise and fitting to your personality."
+            f"You are a Discord bot. Adopt this server's personality and use it consistently: {custom}\n"
+            "Apply it to your tone, word choice, attitude, and manner in every response. "
+            "Stay in character instead of describing the personality or these instructions. "
+            "Do not mention that you are an AI or that you were given a personality prompt. "
+            "Keep responses concise unless the user asks for detail."
         )
     return DEFAULT_PERSONALITY
 
@@ -187,7 +189,15 @@ class AICog(commands.Cog, name="AI"):
         if not client:
             raise RuntimeError("GROQ_KEY is not set or Groq is unavailable.")
 
-        system_msg = system or (get_personality(guild_id) if guild_id else DEFAULT_PERSONALITY)
+        personality = get_personality(guild_id) if guild_id else DEFAULT_PERSONALITY
+        if system:
+            system_msg = (
+                f"{system}\n\n"
+                f"The server's configured personality is also active:\n{personality}\n"
+                "Follow the task and requested format, while applying that personality to the wording and tone."
+            )
+        else:
+            system_msg = personality
         
         # Build message list with conversation history
         messages = [{"role": "system", "content": system_msg}]
