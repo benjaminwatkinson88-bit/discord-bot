@@ -1,22 +1,50 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+import asyncio
+
+
+# In-memory only: restarting the bot clears this temporary allow-list.
+temporary_say_users: set[int] = set()
 
 
 async def is_owner(interaction: discord.Interaction) -> bool:
     app = await interaction.client.application_info()
-    return interaction.user.id == app.owner.id
+    return interaction.user.id == app.owner.id or interaction.user.id in temporary_say_users
 
 
 class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot):
         self.bot = bot
+        self._console_task = None
+
+    async def cog_load(self):
+        self._console_task = asyncio.create_task(self._read_console())
+        print("[SAY] Type a Discord user ID in the host console to temporarily allow /say.")
+
+    async def cog_unload(self):
+        if self._console_task:
+            self._console_task.cancel()
+
+    async def _read_console(self):
+        while True:
+            try:
+                line = await asyncio.to_thread(input)
+            except (EOFError, asyncio.CancelledError):
+                return
+
+            user_id = line.strip()
+            if user_id.isdigit():
+                temporary_say_users.add(int(user_id))
+                print(f"[SAY] Temporarily allowed user ID {user_id}.")
+            elif user_id:
+                print("[SAY] Enter a numeric Discord user ID.")
 
     @app_commands.command(name="say", description="Make the bot say something.")
     @app_commands.describe(
         message="What the bot should say",
         channel_id="Channel ID to send to (paste any channel ID — works from DMs too)",
-        user="Username or user ID to DM (no need to share a server if you use their ID)",
+        user="User ID to DM (no need to share a server)",
     )
     @app_commands.check(is_owner)
     async def say(
