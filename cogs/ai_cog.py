@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
+DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
@@ -180,7 +181,7 @@ class AICog(commands.Cog, name="AI"):
         messages.append({"role": "user", "content": prompt})
 
         response = await client.chat.completions.create(
-            model=model or "llama-3.1-8b-instant",
+            model=model or DEFAULT_MODEL,
             messages=messages,
             max_tokens=512,
         )
