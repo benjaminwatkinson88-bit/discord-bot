@@ -3,20 +3,13 @@ from discord import app_commands
 from discord.ext import commands
 import os
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
-PREFERRED_MODELS = (
-    "llama-3.1-8b-instant",
-    "llama-3.3-70b-versatile",
-    "qwen/qwen3.6-27b",
-    "qwen/qwen3.8-27b",
-    "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-)
+PRIMARY_MODEL = "llama-3.1-8b-instant"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
@@ -145,12 +138,19 @@ def clear_conversation(key: str):
         del conversation_memory[key]
 
 
+def clean_ai_response(content: str) -> str:
+    """Remove reasoning blocks if a model includes them in its visible response."""
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.IGNORECASE | re.DOTALL)
+    content = re.sub(r"<analysis>.*?</analysis>", "", content, flags=re.IGNORECASE | re.DOTALL)
+    content = re.sub(r"^\s*(?:analysis|reasoning|thinking)\s*:\s*", "", content, flags=re.IGNORECASE)
+    return content.strip()
+
+
 class AICog(commands.Cog, name="AI"):
     def __init__(self, bot):
         self.bot = bot
         self._groq_client = None
         self._groq_api_key = None
-        self._available_models = None
         self._handled_ids: set = set()
 
     def get_groq_client(self):
@@ -165,25 +165,12 @@ class AICog(commands.Cog, name="AI"):
                 from groq import AsyncGroq
                 self._groq_client = AsyncGroq(api_key=api_key)
                 self._groq_api_key = api_key
-                self._available_models = None
                 print(f"[AI] Groq client built. Key starts with: {api_key[:8]}...")
             except Exception as e:
                 print(f"[AI] Failed to build Groq client: {e}")
                 return None
 
         return self._groq_client
-
-    async def get_available_models(self, client) -> list[str]:
-        """Find chat models that the configured Groq key can access."""
-        if self._available_models is not None:
-            return self._available_models
-
-        model_list = await client.models.list()
-        available_ids = {item.id for item in model_list.data}
-        self._available_models = [
-            preferred for preferred in PREFERRED_MODELS if preferred in available_ids
-        ]
-        return self._available_models
 
     async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None, model: str = None) -> str:
         """Send a prompt to AI with optional conversation history"""
@@ -200,6 +187,10 @@ class AICog(commands.Cog, name="AI"):
             )
         else:
             system_msg = personality
+        system_msg += (
+            "\nDo not show internal reasoning, analysis, or a thinking process. "
+            "Return only the final answer."
+        )
         
         # Build message list with conversation history
         messages = [{"role": "system", "content": system_msg}]
@@ -212,35 +203,14 @@ class AICog(commands.Cog, name="AI"):
         # Add the current prompt
         messages.append({"role": "user", "content": prompt})
 
-        available_models = await self.get_available_models(client)
-        candidate_models = (
-            ([model] if model else [])
-            + available_models
-            + [item for item in PREFERRED_MODELS if item not in available_models and item != model]
+        selected_model = model or PRIMARY_MODEL
+        response = await client.chat.completions.create(
+            model=selected_model,
+            messages=messages,
+            max_tokens=512,
         )
-        if not candidate_models:
-            raise RuntimeError(
-                "The configured Groq key has no supported chat models available."
-            )
-
-        last_error = None
-        for selected_model in candidate_models:
-            try:
-                response = await client.chat.completions.create(
-                    model=selected_model,
-                    messages=messages,
-                    max_tokens=512,
-                )
-                print(f"[AI] Using Groq model: {selected_model}")
-                return response.choices[0].message.content.strip()
-            except Exception as error:
-                last_error = error
-                error_text = str(error).lower()
-                if "model_not_found" not in error_text and "404" not in error_text:
-                    raise
-                print(f"[AI] Model unavailable, trying the next available model: {selected_model}")
-
-        raise last_error
+        print(f"[AI] Using Groq model: {selected_model}")
+        return clean_ai_response(response.choices[0].message.content)
 
     async def _send_ai_reply(self, message: discord.Message, content: str):
         client = self.get_groq_client()
