@@ -13,6 +13,11 @@ async def is_owner(interaction: discord.Interaction) -> bool:
     return interaction.user.id == app.owner.id or interaction.user.id in temporary_say_users
 
 
+async def is_app_owner(interaction: discord.Interaction) -> bool:
+    app = await interaction.client.application_info()
+    return interaction.user.id == app.owner.id
+
+
 class OwnerCog(commands.Cog, name="Owner"):
     def __init__(self, bot):
         self.bot = bot
@@ -39,6 +44,64 @@ class OwnerCog(commands.Cog, name="Owner"):
                 print(f"[SAY] Temporarily allowed user ID {user_id}.")
             elif user_id:
                 print("[SAY] Enter a numeric Discord user ID.")
+
+    @app_commands.command(
+        name="sayallow",
+        description="Temporarily allow a user to use /say until restart.",
+    )
+    @app_commands.describe(user_id="The numeric Discord user ID to allow")
+    @app_commands.check(is_app_owner)
+    async def sayallow(self, interaction: discord.Interaction, user_id: str):
+        try:
+            allowed_id = int(user_id.strip())
+        except ValueError:
+            await interaction.response.send_message(
+                "❌ Enter a numeric Discord user ID.", ephemeral=True
+            )
+            return
+
+        temporary_say_users.add(allowed_id)
+        await interaction.response.send_message(
+            f"✅ User ID `{allowed_id}` can use `/say` until the bot restarts.",
+            ephemeral=True,
+        )
+
+    @sayallow.error
+    async def sayallow_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            try:
+                await interaction.response.send_message("no", ephemeral=True)
+            except Exception:
+                pass
+
+    @app_commands.command(
+        name="saydeny",
+        description="Remove a user's temporary /say access.",
+    )
+    @app_commands.describe(user_id="The numeric Discord user ID to remove")
+    @app_commands.check(is_app_owner)
+    async def saydeny(self, interaction: discord.Interaction, user_id: str):
+        try:
+            removed_id = int(user_id.strip())
+        except ValueError:
+            await interaction.response.send_message(
+                "❌ Enter a numeric Discord user ID.", ephemeral=True
+            )
+            return
+
+        temporary_say_users.discard(removed_id)
+        await interaction.response.send_message(
+            f"✅ Removed temporary `/say` access for `{removed_id}`.",
+            ephemeral=True,
+        )
+
+    @saydeny.error
+    async def saydeny_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+        if isinstance(error, app_commands.CheckFailure):
+            try:
+                await interaction.response.send_message("no", ephemeral=True)
+            except Exception:
+                pass
 
     @app_commands.command(name="say", description="Make the bot say something.")
     @app_commands.describe(
