@@ -178,8 +178,11 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
 
             if not reply or is_refusal_response(reply):
                 clear_conversation(get_conversation_key(message))
-                # Keep self-talk alive without posting the model's refusal.
-                reply = "Let's explore a different angle."
+                # Keep self-talk alive with a fresh reply in the active persona.
+                reply = await ai_cog.generate_personality_pivot(
+                    guild_id=guild_id,
+                    system=system,
+                )
 
             if reply and len(reply) > 2000:
                 reply = reply[:1997] + "..."
