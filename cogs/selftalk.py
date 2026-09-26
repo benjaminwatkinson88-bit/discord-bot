@@ -176,6 +176,19 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                     else:
                         print(f"[SelfTalk] Error generating reply: {e}")
 
+            if reply and is_refusal_response(reply):
+                clear_conversation(get_conversation_key(message))
+                try:
+                    # Retry one refusal with the exact same request and persona.
+                    retry = await ai_cog.quick_ai(
+                        content,
+                        guild_id=guild_id,
+                        system=system,
+                    )
+                    reply = retry
+                except Exception as e:
+                    print(f"[SelfTalk] Refusal retry failed: {e}")
+
             if not reply or is_refusal_response(reply):
                 clear_conversation(get_conversation_key(message))
                 # Keep self-talk alive with a fresh reply in the active persona.
