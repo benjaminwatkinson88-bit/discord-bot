@@ -146,19 +146,85 @@ def clean_ai_response(content: str) -> str:
     return content.strip()
 
 
+REFUSAL_WORDS = {
+    "can't",
+    "cant",
+    "cannot",
+    "unable",
+    "won't",
+    "wont",
+    "refuse",
+    "refuses",
+    "refusing",
+    "decline",
+    "declines",
+    "declining",
+    "no",
+    "nah",
+    "nope",
+}
+
+
 def is_refusal_response(content: str) -> bool:
-    """Detect explicit refusals without treating ordinary answers like 'no' as refusals."""
+    """Flag refusal words individually, then check whether their context is a refusal."""
     normalized = re.sub(r"\s+", " ", content.lower().replace("’", "'")).strip()
-    refusal_patterns = (
-        r"\b(?:i|we) (?:can't|cannot|can not) (?:help|assist|comply|provide|fulfill|do that)\b",
-        r"\b(?:i|we) (?:am|are) unable to\b",
-        r"\b(?:i|we) (?:am|are) not able to\b",
-        r"\b(?:i|we) (?:won't|will not) (?:help|assist|provide|do that|say that)\b",
-        r"\b(?:i|we) (?:must|have to) (?:decline|refuse)\b",
-        r"\b(?:that's|that is) not something (?:i|we) can\b",
-        r"^\s*(?:no|nah|sorry)[,!.:\-\s]+(?:i|we) (?:can't|cannot|won't|will not|am unable|am not able)\b",
-    )
-    return any(re.search(pattern, normalized) for pattern in refusal_patterns)
+    words = re.findall(r"[a-z]+(?:'[a-z]+)?", normalized)
+    flagged_words = [word for word in words if word in REFUSAL_WORDS]
+    if not flagged_words:
+        return False
+
+    first_person = {"i", "we", "assistant", "bot"}
+    refusal_verbs = {
+        "can't",
+        "cant",
+        "cannot",
+        "unable",
+        "won't",
+        "wont",
+        "refuse",
+        "refuses",
+        "refusing",
+        "decline",
+        "declines",
+        "declining",
+    }
+
+    for index, word in enumerate(words):
+        if word not in refusal_verbs:
+            continue
+
+        # A refusal normally identifies the speaker close to the refusal word:
+        # "I cannot...", "we won't...", or "the bot refuses...".
+        nearby_words = words[max(0, index - 4):index]
+        if any(previous in first_person for previous in nearby_words):
+            return True
+
+        # "Unable to..." at the beginning is also a direct refusal/error response.
+        if word == "unable" and index <= 1:
+            return True
+
+    if "no" in flagged_words or "nah" in flagged_words or "nope" in flagged_words:
+        # A normal answer/correction such as "No, that's wrong" is not a refusal.
+        normal_answer_markers = {
+            "wrong",
+            "correct",
+            "answer",
+            "because",
+            "actually",
+            "means",
+            "true",
+            "false",
+            "is",
+            "are",
+        }
+        if any(marker in words for marker in normal_answer_markers):
+            return False
+
+        # A bare "no" is commonly a valid answer to a question, not a refusal.
+        if len(words) <= 3:
+            return False
+
+    return False
 
 
 class AICog(commands.Cog, name="AI"):
