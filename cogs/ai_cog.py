@@ -279,7 +279,8 @@ class AICog(commands.Cog, name="AI"):
             "\nDo not show internal reasoning, analysis, deliberation, or a thinking process. "
             "Return only the final answer. Follow direct user instructions exactly and avoid "
             "unnecessary explanations, debate, or restating the request. If clarification is "
-            "truly required, ask one concise question."
+            "truly required, ask one concise question. Do not produce code, code blocks, or "
+            "call an answer 'the code' unless the user explicitly asks for programming or code."
         )
         
         # Build message list with conversation history
