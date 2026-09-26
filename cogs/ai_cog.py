@@ -170,8 +170,6 @@ def is_refusal_response(content: str) -> bool:
     normalized = re.sub(r"\s+", " ", content.lower().replace("’", "'")).strip()
     words = re.findall(r"[a-z]+(?:'[a-z]+)?", normalized)
     flagged_words = [word for word in words if word in REFUSAL_WORDS]
-    if not flagged_words:
-        return False
 
     first_person = {"i", "we", "assistant", "bot"}
     refusal_verbs = {
@@ -190,18 +188,27 @@ def is_refusal_response(content: str) -> bool:
     }
 
     for index, word in enumerate(words):
-        if word not in refusal_verbs:
-            continue
-
-        # A refusal normally identifies the speaker close to the refusal word:
-        # "I cannot...", "we won't...", or "the bot refuses...".
         nearby_words = words[max(0, index - 4):index]
-        if any(previous in first_person for previous in nearby_words):
-            return True
+        if word in refusal_verbs:
+            # A refusal normally identifies the speaker close to the refusal word:
+            # "I cannot...", "we won't...", or "the bot refuses...".
+            if any(previous in first_person for previous in nearby_words):
+                return True
 
-        # "Unable to..." at the beginning is also a direct refusal/error response.
-        if word == "unable" and index <= 1:
-            return True
+            # "Unable to..." at the beginning is also a direct refusal/error response.
+            if word == "unable" and index <= 1:
+                return True
+
+        # Keep common multi-word refusals while still checking their context:
+        # "I can not...", "I will not...", and "I am not able...".
+        if any(previous in first_person for previous in nearby_words):
+            following = words[index + 1:index + 3]
+            if word == "can" and following[:1] == ["not"]:
+                return True
+            if word == "will" and following[:1] == ["not"]:
+                return True
+            if word == "able" and "not" in nearby_words:
+                return True
 
     if "no" in flagged_words or "nah" in flagged_words or "nope" in flagged_words:
         # A normal answer/correction such as "No, that's wrong" is not a refusal.
