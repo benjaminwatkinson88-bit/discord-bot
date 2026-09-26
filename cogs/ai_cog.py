@@ -146,6 +146,32 @@ def clean_ai_response(content: str) -> str:
     return content.strip()
 
 
+def is_refusal_response(content: str) -> bool:
+    """Detect common model refusals so they do not become conversation memory."""
+    normalized = content.lower().replace("’", "'")
+    refusal_patterns = (
+        "i can't help with",
+        "i cannot help with",
+        "i can't assist with",
+        "i cannot assist with",
+        "i'm unable to",
+        "i am unable to",
+        "i'm not able to",
+        "i am not able to",
+        "i can't comply",
+        "i cannot comply",
+        "i can't provide",
+        "i cannot provide",
+        "i won't provide",
+        "i will not provide",
+        "i can't fulfill",
+        "i cannot fulfill",
+        "i can't do that",
+        "i cannot do that",
+    )
+    return any(pattern in normalized for pattern in refusal_patterns)
+
+
 class AICog(commands.Cog, name="AI"):
     def __init__(self, bot):
         self.bot = bot
@@ -231,6 +257,11 @@ class AICog(commands.Cog, name="AI"):
 
                 # Get AI response (quick_ai appends the user prompt itself)
                 reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
+
+                # Do not send refusals or let them influence future replies.
+                if not reply or is_refusal_response(reply):
+                    clear_conversation(conversation_key)
+                    return
 
                 # Save both sides to memory after a successful reply
                 add_to_memory(conversation_key, "user", content)
@@ -398,6 +429,10 @@ class AICog(commands.Cog, name="AI"):
             )
         except Exception as e:
             await interaction.followup.send(f"⚠️ Couldn't generate a story: {e}")
+            return
+
+        if not story_text or is_refusal_response(story_text):
+            clear_conversation(conversation_key)
             return
 
         if len(story_text) > 4096:
