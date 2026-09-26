@@ -188,8 +188,10 @@ class AICog(commands.Cog, name="AI"):
         else:
             system_msg = personality
         system_msg += (
-            "\nDo not show internal reasoning, analysis, or a thinking process. "
-            "Return only the final answer."
+            "\nDo not show internal reasoning, analysis, deliberation, or a thinking process. "
+            "Return only the final answer. Follow direct user instructions exactly and avoid "
+            "unnecessary explanations, debate, or restating the request. If clarification is "
+            "truly required, ask one concise question."
         )
         
         # Build message list with conversation history
