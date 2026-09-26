@@ -307,6 +307,42 @@ class AICog(commands.Cog, name="AI"):
         print(f"[AI] Using Groq model: {selected_model}")
         return clean_ai_response(response.choices[0].message.content)
 
+    async def quick_ai_with_refusal_retry(
+        self,
+        prompt: str,
+        guild_id: int = None,
+        system: str = None,
+        conversation_key: str = None,
+        model: str = None,
+    ) -> tuple[str | None, bool]:
+        """Retry one refusal once after clearing memory, then stop retrying."""
+        reply = await self.quick_ai(
+            prompt,
+            guild_id=guild_id,
+            system=system,
+            conversation_key=conversation_key,
+            model=model,
+        )
+        if reply and not is_refusal_response(reply):
+            return reply, False
+
+        if conversation_key:
+            clear_conversation(conversation_key)
+
+        try:
+            retry = await self.quick_ai(
+                prompt,
+                guild_id=guild_id,
+                system=system,
+                conversation_key=conversation_key,
+                model=model,
+            )
+        except Exception as e:
+            print(f"[AI] Refusal retry failed: {e}")
+            return None, True
+
+        return retry, not retry or is_refusal_response(retry)
+
     async def generate_personality_replacement(
         self,
         request: str,
@@ -342,11 +378,14 @@ class AICog(commands.Cog, name="AI"):
                 guild_id = message.guild.id if message.guild else None
                 conversation_key = get_conversation_key(message)
 
-                # Get AI response (quick_ai appends the user prompt itself)
-                reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
+                # Retry one refusal after clearing memory.
+                reply, was_refusal = await self.quick_ai_with_refusal_retry(
+                    content,
+                    guild_id=guild_id,
+                    conversation_key=conversation_key,
+                )
 
                 # Do not let refusals influence future replies.
-                was_refusal = not reply or is_refusal_response(reply)
                 if was_refusal:
                     clear_conversation(conversation_key)
                     reply = await self.generate_personality_replacement(
