@@ -111,7 +111,7 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         if not ai_cog:
             return
 
-        from cogs.ai_cog import get_personality, DEFAULT_PERSONALITY
+        from cogs.ai_cog import get_personality, DEFAULT_PERSONALITY, is_refusal_response
 
         SELFTALK_SUFFIX = (
             " You are currently in a live back-and-forth conversation with another version of yourself "
@@ -169,6 +169,9 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                             pass
                     else:
                         print(f"[SelfTalk] Error generating reply: {e}")
+
+            if reply and is_refusal_response(reply):
+                reply = None
 
             if reply and len(reply) > 2000:
                 reply = reply[:1997] + "..."
