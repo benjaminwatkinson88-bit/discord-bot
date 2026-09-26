@@ -147,29 +147,18 @@ def clean_ai_response(content: str) -> str:
 
 
 def is_refusal_response(content: str) -> bool:
-    """Detect common model refusals so they do not become conversation memory."""
-    normalized = content.lower().replace("’", "'")
+    """Detect explicit refusals without treating ordinary answers like 'no' as refusals."""
+    normalized = re.sub(r"\s+", " ", content.lower().replace("’", "'")).strip()
     refusal_patterns = (
-        "i can't help with",
-        "i cannot help with",
-        "i can't assist with",
-        "i cannot assist with",
-        "i'm unable to",
-        "i am unable to",
-        "i'm not able to",
-        "i am not able to",
-        "i can't comply",
-        "i cannot comply",
-        "i can't provide",
-        "i cannot provide",
-        "i won't provide",
-        "i will not provide",
-        "i can't fulfill",
-        "i cannot fulfill",
-        "i can't do that",
-        "i cannot do that",
+        r"\b(?:i|we) (?:can't|cannot|can not) (?:help|assist|comply|provide|fulfill|do that)\b",
+        r"\b(?:i|we) (?:am|are) unable to\b",
+        r"\b(?:i|we) (?:am|are) not able to\b",
+        r"\b(?:i|we) (?:won't|will not) (?:help|assist|provide|do that|say that)\b",
+        r"\b(?:i|we) (?:must|have to) (?:decline|refuse)\b",
+        r"\b(?:that's|that is) not something (?:i|we) can\b",
+        r"^\s*(?:no|nah|sorry)[,!.:\-\s]+(?:i|we) (?:can't|cannot|won't|will not|am unable|am not able)\b",
     )
-    return any(pattern in normalized for pattern in refusal_patterns)
+    return any(re.search(pattern, normalized) for pattern in refusal_patterns)
 
 
 class AICog(commands.Cog, name="AI"):
@@ -258,9 +247,14 @@ class AICog(commands.Cog, name="AI"):
                 # Get AI response (quick_ai appends the user prompt itself)
                 reply = await self.quick_ai(content, guild_id=guild_id, conversation_key=conversation_key)
 
-                # Do not send refusals or let them influence future replies.
-                if not reply or is_refusal_response(reply):
+                # Do not let refusals influence future replies.
+                was_refusal = not reply or is_refusal_response(reply)
+                if was_refusal:
                     clear_conversation(conversation_key)
+                    reply = "Let's take that in a different direction."
+
+                if was_refusal:
+                    await message.reply(reply)
                     return
 
                 # Save both sides to memory after a successful reply
@@ -433,7 +427,7 @@ class AICog(commands.Cog, name="AI"):
 
         if not story_text or is_refusal_response(story_text):
             clear_conversation(conversation_key)
-            return
+            story_text = "Let's take that in a different direction."
 
         if len(story_text) > 4096:
             story_text = story_text[:4093] + "..."
