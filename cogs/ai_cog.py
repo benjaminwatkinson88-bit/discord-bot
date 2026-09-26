@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
-PRIMARY_MODEL = "qwen/qwen3.6-27b"
+PRIMARY_MODEL = "qwen/qwen3.8-27b"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
