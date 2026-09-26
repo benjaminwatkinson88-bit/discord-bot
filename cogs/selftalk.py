@@ -154,7 +154,6 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                         content,
                         guild_id=guild_id,
                         system=system,
-                        model="llama-3.3-70b-versatile",
                     )
                 except Exception as e:
                     if "429" in str(e) or "rate_limit" in str(e).lower():
@@ -165,7 +164,6 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                                 content,
                                 guild_id=guild_id,
                                 system=system,
-                                model="llama-3.3-70b-versatile",
                             )
                         except Exception:
                             pass
