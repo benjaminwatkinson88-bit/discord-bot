@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 DATA_FILE = "data/personality.json"
 CHANNEL_FILE = "data/channel_config.json"
-PRIMARY_MODEL = "llama-3.1-8b-instant"
+PRIMARY_MODEL = "qwen/qwen3.6-27b"
 
 DEFAULT_PERSONALITY = (
     "You are a fun, witty, and helpful Discord bot. You have a playful personality "
@@ -204,11 +204,15 @@ class AICog(commands.Cog, name="AI"):
         messages.append({"role": "user", "content": prompt})
 
         selected_model = model or PRIMARY_MODEL
-        response = await client.chat.completions.create(
-            model=selected_model,
-            messages=messages,
-            max_tokens=512,
-        )
+        request_options = {
+            "model": selected_model,
+            "messages": messages,
+            "max_tokens": 512,
+        }
+        if selected_model.startswith("qwen/"):
+            request_options["reasoning_effort"] = "none"
+
+        response = await client.chat.completions.create(**request_options)
         print(f"[AI] Using Groq model: {selected_model}")
         return clean_ai_response(response.choices[0].message.content)
 
