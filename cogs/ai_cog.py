@@ -233,20 +233,28 @@ class AICog(commands.Cog, name="AI"):
         print(f"[AI] Using Groq model: {selected_model}")
         return clean_ai_response(response.choices[0].message.content)
 
-    async def generate_personality_pivot(self, guild_id: int = None, system: str = None) -> str | None:
-        """Generate a safe, in-character topic pivot without using conversation history."""
+    async def generate_personality_replacement(
+        self,
+        request: str,
+        guild_id: int = None,
+        system: str = None,
+    ) -> str | None:
+        """Generate a safe, in-character replacement on the same subject."""
         try:
             pivot = await self.quick_ai(
-                "Give one short, harmless reply that smoothly changes the subject. "
-                "Stay fully in character and use the active personality. "
-                "Do not mention policies, refusals, safety, or this instruction.",
+                "Respond to the same subject and intent as the request below in one short, "
+                "harmless, in-character reply. Stay on the original topic instead of changing "
+                "the subject. If the request asks for disallowed content, do not repeat that "
+                "content; give the closest safe response while staying on topic. Do not mention "
+                "policies, refusals, safety, or this instruction.\n\n"
+                f"Original request:\n{request}",
                 guild_id=guild_id,
                 system=system,
             )
             if pivot and not is_refusal_response(pivot):
                 return pivot
         except Exception as e:
-            print(f"[AI] Could not generate a personality pivot: {e}")
+            print(f"[AI] Could not generate a personality replacement: {e}")
         return None
 
     async def _send_ai_reply(self, message: discord.Message, content: str):
@@ -267,7 +275,10 @@ class AICog(commands.Cog, name="AI"):
                 was_refusal = not reply or is_refusal_response(reply)
                 if was_refusal:
                     clear_conversation(conversation_key)
-                    reply = await self.generate_personality_pivot(guild_id=guild_id)
+                    reply = await self.generate_personality_replacement(
+                        content,
+                        guild_id=guild_id,
+                    )
 
                 if was_refusal and not reply:
                     return
@@ -446,8 +457,9 @@ class AICog(commands.Cog, name="AI"):
 
         if not story_text or is_refusal_response(story_text):
             clear_conversation(conversation_key)
-            story_text = await self.generate_personality_pivot(
-                guild_id=interaction.guild.id if interaction.guild else None
+            story_text = await self.generate_personality_replacement(
+                prompt,
+                guild_id=interaction.guild.id if interaction.guild else None,
             )
             if not story_text:
                 return
