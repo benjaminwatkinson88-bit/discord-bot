@@ -109,7 +109,7 @@ class OwnerCog(commands.Cog, name="Owner"):
         channel_id="Channel ID to send to (paste any channel ID — works from DMs too)",
         user="User ID to DM (no need to share a server)",
         mass="Repeat the final message multiple times",
-        repeats="How many times to send it (1-20)",
+        repeats="How many times to send it (any positive number)",
         interval="Seconds between repeats (1-30)",
         use_ai="Use the AI once to transform the message before sending",
         ai_instruction="What the AI should do with the message",
@@ -122,12 +122,19 @@ class OwnerCog(commands.Cog, name="Owner"):
         channel_id: str = None,
         user: str = None,
         mass: bool = False,
-        repeats: app_commands.Range[int, 1, 20] = 1,
+        repeats: int = 1,
         interval: app_commands.Range[float, 1.0, 30.0] = 1.0,
         use_ai: bool = False,
         ai_instruction: str = None,
     ):
         await interaction.response.defer(ephemeral=True)
+
+        if repeats < 1:
+            await interaction.followup.send(
+                "❌ `repeats` must be a positive number.",
+                ephemeral=True,
+            )
+            return
 
         send_count = int(repeats) if mass else 1
         send_interval = float(interval)
