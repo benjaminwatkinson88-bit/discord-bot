@@ -108,6 +108,11 @@ class OwnerCog(commands.Cog, name="Owner"):
         message="What the bot should say",
         channel_id="Channel ID to send to (paste any channel ID — works from DMs too)",
         user="User ID to DM (no need to share a server)",
+        mass="Repeat the final message multiple times",
+        repeats="How many times to send it (1-20)",
+        interval="Seconds between repeats (1-30)",
+        use_ai="Use the AI once to transform the message before sending",
+        ai_instruction="What the AI should do with the message",
     )
     @app_commands.check(is_owner)
     async def say(
@@ -116,14 +121,54 @@ class OwnerCog(commands.Cog, name="Owner"):
         message: str,
         channel_id: str = None,
         user: str = None,
+        mass: bool = False,
+        repeats: app_commands.Range[int, 1, 20] = 1,
+        interval: app_commands.Range[float, 1.0, 30.0] = 1.0,
+        use_ai: bool = False,
+        ai_instruction: str = None,
     ):
         await interaction.response.defer(ephemeral=True)
 
-        # DM a user by username or ID
-        if user is not None:
-            target_user = None
+        send_count = int(repeats) if mass else 1
+        send_interval = float(interval)
 
-            # Look up by user ID
+        if use_ai:
+            ai_cog = self.bot.get_cog("AI")
+            if not ai_cog:
+                await interaction.followup.send("❌ AI is not available right now.", ephemeral=True)
+                return
+
+            instruction = (ai_instruction or "Rewrite the message while preserving its meaning.").strip()
+            try:
+                message = await ai_cog.quick_ai(
+                    "Transform the following message according to the instruction. "
+                    "Return only the final message, with no preamble or explanation.\n\n"
+                    f"Instruction: {instruction}\n"
+                    f"Message: {message}",
+                    system="You are a precise message editor. Follow the requested transformation.",
+                    max_tokens=128,
+                )
+            except Exception as e:
+                if "429" in str(e) or "rate_limit" in str(e).lower():
+                    await interaction.followup.send(
+                        "❌ The Groq AI token quota has been reached. Please wait for it to reset.",
+                        ephemeral=True,
+                    )
+                else:
+                    await interaction.followup.send(f"❌ Couldn't transform the message: {e}", ephemeral=True)
+                return
+
+            if not message:
+                await interaction.followup.send("❌ The AI returned an empty message.", ephemeral=True)
+                return
+
+        if len(message) > 2000:
+            message = message[:1997] + "..."
+
+        destination_name = "the current channel"
+
+        # DM a user by ID
+        if user is not None:
             try:
                 uid = int(user.strip())
                 target_user = interaction.client.get_user(uid) or await interaction.client.fetch_user(uid)
@@ -134,19 +179,13 @@ class OwnerCog(commands.Cog, name="Owner"):
                 )
                 return
 
-            try:
-                await target_user.send(message)
-                await interaction.followup.send(
-                    f"✅ DM sent to **{target_user.display_name}**.", ephemeral=True
-                )
-            except discord.Forbidden:
-                await interaction.followup.send(
-                    "❌ Couldn't DM that user (they may have DMs disabled).", ephemeral=True
-                )
-            return
+            async def send_one(text: str):
+                await target_user.send(text)
+
+            destination_name = f"**{target_user.display_name}**"
 
         # Send to a channel by ID
-        if channel_id is not None:
+        elif channel_id is not None:
             try:
                 cid = int(channel_id.strip())
             except ValueError:
@@ -154,35 +193,59 @@ class OwnerCog(commands.Cog, name="Owner"):
                     "❌ That doesn't look like a valid channel ID.", ephemeral=True
                 )
                 return
-            channel = interaction.client.get_channel(cid) or await interaction.client.fetch_channel(cid)
+            try:
+                channel = interaction.client.get_channel(cid) or await interaction.client.fetch_channel(cid)
+            except (discord.NotFound, discord.Forbidden):
+                channel = None
             if channel is None:
                 await interaction.followup.send(
                     "❌ Couldn't find that channel.", ephemeral=True
                 )
                 return
-            try:
-                await channel.send(message)
-                await interaction.followup.send(
-                    f"✅ Sent to **{getattr(channel, 'name', str(cid))}**.", ephemeral=True
-                )
-            except discord.Forbidden:
-                await interaction.followup.send(
-                    "❌ I don't have permission to send messages there.", ephemeral=True
-                )
-            return
+
+            async def send_one(text: str):
+                await channel.send(text)
+
+            destination_name = f"**{getattr(channel, 'name', str(cid))}**"
 
         # Fall back: current channel (only works inside a server/group)
-        if interaction.channel is not None:
-            try:
-                await interaction.channel.send(message)
-                await interaction.followup.send("✅ Sent.", ephemeral=True)
-            except discord.Forbidden:
-                await interaction.followup.send(
-                    "❌ I don't have permission to send messages here.", ephemeral=True
-                )
-        else:
+        elif interaction.channel is None:
             await interaction.followup.send(
                 "❌ Provide a `channel_id` or `user` when using this from DMs.", ephemeral=True
+            )
+            return
+        else:
+            async def send_one(text: str):
+                await interaction.channel.send(text)
+
+        sent = 0
+        try:
+            for index in range(send_count):
+                await send_one(message)
+                sent += 1
+                if index < send_count - 1:
+                    await asyncio.sleep(send_interval)
+        except discord.Forbidden:
+            await interaction.followup.send(
+                f"❌ I don't have permission to send to {destination_name}. "
+                f"Sent {sent} of {send_count}.",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as e:
+            await interaction.followup.send(
+                f"❌ Discord rejected the send ({e}). Sent {sent} of {send_count}.",
+                ephemeral=True,
+            )
+            return
+
+        if send_count == 1:
+            await interaction.followup.send(f"✅ Sent to {destination_name}.", ephemeral=True)
+        else:
+            await interaction.followup.send(
+                f"✅ Sent {sent} copies to {destination_name} "
+                f"with {send_interval:g}s between messages.",
+                ephemeral=True,
             )
 
     @say.error
