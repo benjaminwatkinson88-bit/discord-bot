@@ -159,6 +159,14 @@ REFUSAL_WORDS = {
     "decline",
     "declines",
     "declining",
+    "shouldn't",
+    "shouldnt",
+    "disallowed",
+    "prohibited",
+    "unacceptable",
+    "unsafe",
+    "sorry",
+    "apologies",
     "no",
     "nah",
     "nope",
@@ -166,68 +174,54 @@ REFUSAL_WORDS = {
 
 
 def is_refusal_response(content: str) -> bool:
-    """Flag refusal words individually, then check whether their context is a refusal."""
+    """Detect refusal language while allowing ordinary answers and disagreement."""
     normalized = re.sub(r"\s+", " ", content.lower().replace("’", "'")).strip()
     words = re.findall(r"[a-z]+(?:'[a-z]+)?", normalized)
     flagged_words = [word for word in words if word in REFUSAL_WORDS]
 
-    first_person = {"i", "we", "assistant", "bot"}
-    refusal_verbs = {
-        "can't",
-        "cant",
-        "cannot",
-        "unable",
-        "won't",
-        "wont",
-        "refuse",
-        "refuses",
-        "refusing",
-        "decline",
-        "declines",
-        "declining",
+    refusal_patterns = (
+        # Direct first-person refusals and capability limitations.
+        r"\b(?:i|we|assistant|bot)\s+(?:can't|cant|cannot|can not|won't|wont|will not)\b",
+        r"\b(?:i|we|assistant|bot)\s+(?:am|are)\s+(?:unable|not able)\b",
+        r"\b(?:i|we|assistant|bot)\s+(?:must|have to|need to)\s+(?:refuse|decline)\b",
+        r"\b(?:i|we)\s+(?:refuse|refusing|decline|declining)\b",
+        r"\b(?:i|we)\s+(?:don't|do not)\s+(?:think\s+i\s+can|feel\s+comfortable)\b",
+        r"\b(?:i|we)\s+(?:am|are)\s+not\s+(?:comfortable|going to)\b",
+        r"\b(?:i|we)\s+(?:would|i'd)\s+rather\s+not\b",
+        r"\b(?:i|we)\s+prefer\s+not\s+to\b",
+        # Common refusal wording that refers to the request directly.
+        r"\bnot\s+something\s+(?:i|we)\s+can\b",
+        r"\b(?:i|we)\s+(?:don't|do not)\s+have\s+the\s+ability\s+to\b",
+        r"\b(?:i|we)\s+(?:can't|cannot|won't|will not)\s+(?:help|assist|provide|answer|discuss|generate|create|say|share|fulfill|comply|do)\b",
+        r"\b(?:i|we)\s+(?:can't|cannot|won't|will not)\s+(?:help|assist)\s+with\s+(?:this|that|the)\s+(?:topic|request|question)\b",
+        r"\b(?:i|we)\s+(?:am|are)\s+(?:not allowed|not permitted|not authorized)\s+to\b",
+        r"\b(?:i|we)\s+(?:have|need)\s+to\s+(?:refuse|decline|say no)\b",
+        # Policy-style refusals, only when clearly describing the request/content.
+        r"\b(?:this|that|the)\s+(?:request|content|instruction|question)\s+is\s+(?:disallowed|prohibited|not allowed|unacceptable)\b",
+        r"\b(?:against|outside|violates)\s+(?:my|our|the)\s+(?:guidelines|policies|policy)\b",
+        r"\b(?:for|due to)\s+safety\s+(?:reasons|concerns)\b",
+        r"\b(?:i|we)\s+(?:must|have to)\s+follow\s+(?:safety|my|our)\s+(?:guidelines|rules|policies)\b",
+    )
+    if any(re.search(pattern, normalized) for pattern in refusal_patterns):
+        return True
+
+    # A normal answer/correction such as "No, that's wrong" is not a refusal.
+    normal_answer_markers = {
+        "wrong",
+        "correct",
+        "answer",
+        "because",
+        "actually",
+        "means",
+        "true",
+        "false",
+        "is",
+        "are",
     }
-
-    for index, word in enumerate(words):
-        nearby_words = words[max(0, index - 4):index]
-        if word in refusal_verbs:
-            # A refusal normally identifies the speaker close to the refusal word:
-            # "I cannot...", "we won't...", or "the bot refuses...".
-            if any(previous in first_person for previous in nearby_words):
-                return True
-
-            # "Unable to..." at the beginning is also a direct refusal/error response.
-            if word == "unable" and index <= 1:
-                return True
-
-        # Keep common multi-word refusals while still checking their context:
-        # "I can not...", "I will not...", and "I am not able...".
-        if any(previous in first_person for previous in nearby_words):
-            following = words[index + 1:index + 3]
-            if word == "can" and following[:1] == ["not"]:
-                return True
-            if word == "will" and following[:1] == ["not"]:
-                return True
-            if word == "able" and "not" in nearby_words:
-                return True
-
-    if "no" in flagged_words or "nah" in flagged_words or "nope" in flagged_words:
-        # A normal answer/correction such as "No, that's wrong" is not a refusal.
-        normal_answer_markers = {
-            "wrong",
-            "correct",
-            "answer",
-            "because",
-            "actually",
-            "means",
-            "true",
-            "false",
-            "is",
-            "are",
-        }
+    if {"no", "nah", "nope"} & set(flagged_words):
         if any(marker in words for marker in normal_answer_markers):
             return False
-
-        # A bare "no" is commonly a valid answer to a question, not a refusal.
+        # A bare "no" is commonly a valid answer to a question.
         if len(words) <= 3:
             return False
 
@@ -240,6 +234,7 @@ class AICog(commands.Cog, name="AI"):
         self._groq_client = None
         self._groq_api_key = None
         self._handled_ids: set = set()
+        self._processing_channels: set[str] = set()
 
     def get_groq_client(self):
         api_key = os.environ.get("GROQ_KEY", "").strip().strip('"').strip("'")
@@ -260,7 +255,15 @@ class AICog(commands.Cog, name="AI"):
 
         return self._groq_client
 
-    async def quick_ai(self, prompt: str, guild_id: int = None, system: str = None, conversation_key: str = None, model: str = None) -> str:
+    async def quick_ai(
+        self,
+        prompt: str,
+        guild_id: int = None,
+        system: str = None,
+        conversation_key: str = None,
+        model: str = None,
+        max_tokens: int = 256,
+    ) -> str:
         """Send a prompt to AI with optional conversation history"""
         client = self.get_groq_client()
         if not client:
@@ -298,7 +301,7 @@ class AICog(commands.Cog, name="AI"):
         request_options = {
             "model": selected_model,
             "messages": messages,
-            "max_tokens": 512,
+            "max_tokens": max_tokens,
         }
         if selected_model.startswith("qwen/"):
             request_options["reasoning_effort"] = "none"
@@ -306,42 +309,6 @@ class AICog(commands.Cog, name="AI"):
         response = await client.chat.completions.create(**request_options)
         print(f"[AI] Using Groq model: {selected_model}")
         return clean_ai_response(response.choices[0].message.content)
-
-    async def quick_ai_with_refusal_retry(
-        self,
-        prompt: str,
-        guild_id: int = None,
-        system: str = None,
-        conversation_key: str = None,
-        model: str = None,
-    ) -> tuple[str | None, bool]:
-        """Retry one refusal once after clearing memory, then stop retrying."""
-        reply = await self.quick_ai(
-            prompt,
-            guild_id=guild_id,
-            system=system,
-            conversation_key=conversation_key,
-            model=model,
-        )
-        if reply and not is_refusal_response(reply):
-            return reply, False
-
-        if conversation_key:
-            clear_conversation(conversation_key)
-
-        try:
-            retry = await self.quick_ai(
-                prompt,
-                guild_id=guild_id,
-                system=system,
-                conversation_key=conversation_key,
-                model=model,
-            )
-        except Exception as e:
-            print(f"[AI] Refusal retry failed: {e}")
-            return None, True
-
-        return retry, not retry or is_refusal_response(retry)
 
     async def generate_personality_replacement(
         self,
@@ -373,31 +340,24 @@ class AICog(commands.Cog, name="AI"):
             await message.reply("⚠️ AI is not configured yet. An admin needs to set the `GROQ_KEY` secret.")
             return
 
+        conversation_key = get_conversation_key(message)
+        if conversation_key in self._processing_channels:
+            return
+        self._processing_channels.add(conversation_key)
+
         async with message.channel.typing():
             try:
                 guild_id = message.guild.id if message.guild else None
-                conversation_key = get_conversation_key(message)
 
-                # Retry one refusal after clearing memory.
-                reply, was_refusal = await self.quick_ai_with_refusal_retry(
+                reply = await self.quick_ai(
                     content,
                     guild_id=guild_id,
                     conversation_key=conversation_key,
                 )
 
-                # Do not let refusals influence future replies.
-                if was_refusal:
+                # Never send a refusal or let it influence future replies.
+                if not reply or is_refusal_response(reply):
                     clear_conversation(conversation_key)
-                    reply = await self.generate_personality_replacement(
-                        content,
-                        guild_id=guild_id,
-                    )
-
-                if was_refusal and not reply:
-                    return
-
-                if was_refusal:
-                    await message.reply(reply)
                     return
 
                 # Save both sides to memory after a successful reply
@@ -411,6 +371,8 @@ class AICog(commands.Cog, name="AI"):
                 if "429" in str(e) or "rate_limit" in str(e).lower():
                     return  # silently drop rate limit errors
                 await message.reply(f"⚠️ Something went wrong with the AI: {e}")
+            finally:
+                self._processing_channels.discard(conversation_key)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -570,12 +532,7 @@ class AICog(commands.Cog, name="AI"):
 
         if not story_text or is_refusal_response(story_text):
             clear_conversation(conversation_key)
-            story_text = await self.generate_personality_replacement(
-                prompt,
-                guild_id=interaction.guild.id if interaction.guild else None,
-            )
-            if not story_text:
-                return
+            return
 
         if len(story_text) > 4096:
             story_text = story_text[:4093] + "..."
