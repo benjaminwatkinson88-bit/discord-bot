@@ -103,6 +103,11 @@ class ExtraFunCog(commands.Cog, name="ExtraFun"):
                 system="You are a wise and empathetic advisor. Give real, grounded advice."
             )
         except Exception as e:
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                await interaction.followup.send(
+                    "⚠️ The Groq AI token quota has been reached. Please wait for it to reset or upgrade the Groq plan."
+                )
+                return
             await interaction.followup.send(f"Couldn't generate advice: {e}")
             return
         embed = discord.Embed(title="💬 Advice", color=discord.Color.teal())
