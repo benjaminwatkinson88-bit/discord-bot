@@ -159,27 +159,24 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
 
         self._processing.add(channel_id)
         reply = None
+        conversation_key = get_conversation_key(message)
         try:
             await asyncio.sleep(1.2)  # small pause so it feels like a conversation
 
             async with message.channel.typing():
                 try:
-                    reply = await ai_cog.quick_ai(
+                    reply = await ai_cog.quick_ai_with_refusal_retry(
                         content,
                         guild_id=guild_id,
                         system=system,
+                        conversation_key=conversation_key,
                     )
                 except Exception as e:
                     print(f"[SelfTalk] Error generating reply: {e}")
 
             if not reply or is_refusal_response(reply):
-                clear_conversation(get_conversation_key(message))
-                # Keep self-talk alive with a non-refusal reply in the active persona.
-                reply = await ai_cog.generate_personality_replacement(
-                    content,
-                    guild_id=guild_id,
-                    system=system,
-                )
+                clear_conversation(conversation_key)
+                return
 
             if reply and len(reply) > 2000:
                 reply = reply[:1997] + "..."
