@@ -4,9 +4,11 @@ from discord.ext import commands
 import json
 import os
 import asyncio
+import time
 
 SELFTALK_FILE = "data/selftalk.json"
 MAX_TURNS = 12  # Max back-and-forths before pausing until a human speaks
+SELFTALK_COOLDOWN = 5.0  # Minimum time between self-talk API calls per channel
 
 
 def load_selftalk() -> dict:
@@ -73,6 +75,7 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         self._persona: dict[int, int] = {}
         # Channels currently being processed — prevents concurrent double-firing
         self._processing: set[int] = set()
+        self._last_call_at: dict[int, float] = {}
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -97,6 +100,11 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
         # Skip if this channel is already mid-generation (prevents double-trigger)
         if channel_id in self._processing:
             return
+
+        now = time.monotonic()
+        if now - self._last_call_at.get(channel_id, 0.0) < SELFTALK_COOLDOWN:
+            return
+        self._last_call_at[channel_id] = now
 
         # Enforce turn limit unless infinite mode is on
         turns = self._turns.get(channel_id, 0)
@@ -162,36 +170,11 @@ class SelfTalkCog(commands.Cog, name="SelfTalk"):
                         system=system,
                     )
                 except Exception as e:
-                    if "429" in str(e) or "rate_limit" in str(e).lower():
-                        # Rate limited — wait and retry once
-                        await asyncio.sleep(4)
-                        try:
-                            reply = await ai_cog.quick_ai(
-                                content,
-                                guild_id=guild_id,
-                                system=system,
-                            )
-                        except Exception:
-                            pass
-                    else:
-                        print(f"[SelfTalk] Error generating reply: {e}")
-
-            if reply and is_refusal_response(reply):
-                clear_conversation(get_conversation_key(message))
-                try:
-                    # Retry one refusal with the exact same request and persona.
-                    retry = await ai_cog.quick_ai(
-                        content,
-                        guild_id=guild_id,
-                        system=system,
-                    )
-                    reply = retry
-                except Exception as e:
-                    print(f"[SelfTalk] Refusal retry failed: {e}")
+                    print(f"[SelfTalk] Error generating reply: {e}")
 
             if not reply or is_refusal_response(reply):
                 clear_conversation(get_conversation_key(message))
-                # Keep self-talk alive with a fresh reply in the active persona.
+                # Keep self-talk alive with a non-refusal reply in the active persona.
                 reply = await ai_cog.generate_personality_replacement(
                     content,
                     guild_id=guild_id,
