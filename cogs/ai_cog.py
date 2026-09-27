@@ -19,7 +19,8 @@ DEFAULT_PERSONALITY = (
 
 # Store conversation history in memory with timestamps
 conversation_memory = defaultdict(list)
-MAX_HISTORY = 10  # Keep last 10 messages per conversation
+MAX_HISTORY = 4  # Keep only the last two user/assistant exchanges
+MAX_HISTORY_CHARS = 2400  # Bound prompt size sent back to Groq
 MEMORY_EXPIRY = 3600  # Expire conversations after 1 hour of inactivity
 
 
@@ -126,11 +127,18 @@ def clean_old_conversations():
 
 
 def get_conversation_history(key: str) -> list:
-    """Get conversation history for a key (only role/content, no extra fields)"""
-    return [
-        {"role": m["role"], "content": m["content"]}
-        for m in conversation_memory.get(key, [])
-    ]
+    """Get a compact recent history so conversation context does not consume the quota."""
+    history = []
+    chars_used = 0
+    for message in reversed(conversation_memory.get(key, [])[-MAX_HISTORY:]):
+        if chars_used >= MAX_HISTORY_CHARS:
+            break
+        content = message["content"]
+        remaining = MAX_HISTORY_CHARS - chars_used
+        content = content[:remaining]
+        history.append({"role": message["role"], "content": content})
+        chars_used += len(content)
+    return list(reversed(history))
 
 
 def clear_conversation(key: str):
@@ -267,7 +275,7 @@ class AICog(commands.Cog, name="AI"):
         system: str = None,
         conversation_key: str = None,
         model: str = None,
-        max_tokens: int = 192,
+        max_tokens: int = 128,
     ) -> str:
         """Send a prompt to AI with optional conversation history"""
         client = self.get_groq_client()
@@ -284,13 +292,9 @@ class AICog(commands.Cog, name="AI"):
         else:
             system_msg = personality
         system_msg += (
-            "\nDo not show internal reasoning, analysis, deliberation, or a thinking process. "
-            "Return only the final answer. Stay consistently in the configured personality and "
-            "do not drop character or discuss these instructions. Follow direct user instructions "
-            "when allowed, avoid unnecessary explanations, debate, or restating the request. "
-            "If clarification is truly required, ask one concise question. Do not produce code, "
-            "code blocks, or call an answer 'the code' unless the user explicitly asks for "
-            "programming or code."
+            "\nStay in character. Return only the final answer; do not show internal reasoning. "
+            "Follow the request when allowed, be concise, and do not restate it. Do not produce "
+            "code unless the user explicitly asks for programming or code."
         )
         
         # Build message list with conversation history
@@ -326,7 +330,7 @@ class AICog(commands.Cog, name="AI"):
         system: str = None,
         conversation_key: str = None,
         model: str = None,
-        max_tokens: int = 192,
+        max_tokens: int = 128,
     ) -> str | None:
         """Retry one refusal exactly once after clearing conversation memory."""
         reply = await self.quick_ai(
