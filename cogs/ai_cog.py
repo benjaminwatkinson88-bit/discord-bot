@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 import json
 import re
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -246,7 +247,11 @@ class AICog(commands.Cog, name="AI"):
         if self._groq_client is None or api_key != self._groq_api_key:
             try:
                 from groq import AsyncGroq
-                self._groq_client = AsyncGroq(api_key=api_key)
+                self._groq_client = AsyncGroq(
+                    api_key=api_key,
+                    timeout=20.0,
+                    max_retries=0,
+                )
                 self._groq_api_key = api_key
                 print(f"[AI] Groq client built. Key starts with: {api_key[:8]}...")
             except Exception as e:
@@ -262,7 +267,7 @@ class AICog(commands.Cog, name="AI"):
         system: str = None,
         conversation_key: str = None,
         model: str = None,
-        max_tokens: int = 256,
+        max_tokens: int = 192,
     ) -> str:
         """Send a prompt to AI with optional conversation history"""
         client = self.get_groq_client()
@@ -308,8 +313,10 @@ class AICog(commands.Cog, name="AI"):
         if selected_model.startswith("qwen/"):
             request_options["reasoning_effort"] = "none"
 
+        request_started = time.monotonic()
         response = await client.chat.completions.create(**request_options)
-        print(f"[AI] Using Groq model: {selected_model}")
+        elapsed = time.monotonic() - request_started
+        print(f"[AI] Using Groq model: {selected_model} ({elapsed:.1f}s)")
         return clean_ai_response(response.choices[0].message.content)
 
     async def quick_ai_with_refusal_retry(
@@ -319,7 +326,7 @@ class AICog(commands.Cog, name="AI"):
         system: str = None,
         conversation_key: str = None,
         model: str = None,
-        max_tokens: int = 256,
+        max_tokens: int = 192,
     ) -> str | None:
         """Retry one refusal exactly once after clearing conversation memory."""
         reply = await self.quick_ai(
